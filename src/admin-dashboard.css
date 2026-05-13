@@ -1,0 +1,389 @@
+/* ─── KPI CARD: label on top, value below ──────────────────────────────────── */
+.ad-kpi-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: transform .2s, box-shadow .2s;
+}
+.ad-kpi-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px var(--shadow-color); }
+.ad-kpi-icon { width: 46px; height: 46px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+/* label first (top), value second (bottom) */
+.ad-kpi-card > div { display: flex; flex-direction: column; gap: 2px; }
+.ad-kpi-card span  { display: block; font-size: .72rem; color: var(--text-secondary); font-weight: 500; order: 0; }
+.ad-kpi-card strong{ display: block; font-size: 1.25rem; font-weight: 800; color: var(--text-primary); order: 1; }
+.ad-kpi-card small { display: block; font-size: .65rem; color: var(--accent); font-weight: 600; order: 2; margin-top: 2px; }
+/* Sidebar: fixed to left, full height */
+.ad-sidebar{width:240px;height:100vh;background:var(--bg-secondary);border-right:1px solid var(--border-color);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:600;transition:transform .3s;overflow-y:auto}
+.ad-sidebar-brand{padding:16px 20px;font-size:1.15rem;font-weight:800;color:var(--accent);border-bottom:1px solid var(--border-color)}
+.ad-sidebar-brand span{font-size:.65rem;background:rgba(139,92,246,.15);color:#8b5cf6;padding:2px 8px;border-radius:50px;margin-left:6px;font-weight:700}
+.ad-sidebar-user{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border-color)}
+.ad-sidebar-user strong{display:block;font-size:.85rem;color:var(--text-primary)}
+.ad-sidebar-user span{font-size:.7rem;color:#8b5cf6}
+.ad-nav{flex:1;padding:8px 0;overflow-y:auto}
+.ad-nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 20px;background:none;border:none;border-left:3px solid transparent;cursor:pointer;color:var(--text-secondary);font-size:.85rem;font-weight:500;text-align:left;text-decoration:none;transition:all .2s}
+.ad-nav-item:hover{background:rgba(139,92,246,.08);color:#8b5cf6}
+.ad-nav-active{background:rgba(139,92,246,.12)!important;color:#8b5cf6!important;border-left-color:#8b5cf6!important;font-weight:700!important}
+.ad-sidebar-foot{padding:8px 0;border-top:1px solid var(--border-color)}
+/* Main area: offset by sidebar, fills remaining space */
+.ad-main{flex:1;margin-left:240px;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+/* Topbar: fixed at top, aligned next to sidebar */
+.ad-topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:60px;background:var(--bg-secondary);border-bottom:1px solid var(--border-color);position:fixed;top:0;left:240px;right:0;z-index:500;flex-shrink:0}
+.ad-menu-btn{display:none;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-primary)}
+.ad-topbar-title{font-size:.95rem;font-weight:700;color:var(--text-primary)}
+.ad-topbar-right{display:flex;align-items:center;gap:12px;font-size:1.1rem}
+/* Content: only this area scrolls, padded below fixed topbar */
+.ad-content{padding:24px;flex:1;overflow-y:auto;margin-top:60px}
+/* Overlay for mobile sidebar */
+.ad-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:599}
+.ad-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-weight:800;font-size:.78rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ad-avatar-sm{width:30px;height:30px;font-size:.65rem}
+.ad-section{display:flex;flex-direction:column;gap:18px}
+.ad-section-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.ad-section-head h2{font-size:1.35rem;font-weight:700;color:var(--text-primary)}
+.ad-head-actions{display:flex;gap:8px}
+.ad-card{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:20px 22px}
+.ad-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.ad-card-head h3{font-size:.92rem;font-weight:700;color:var(--text-primary)}
+.ad-badge{display:inline-block;padding:2px 9px;border-radius:50px;font-size:.68rem;font-weight:700;text-transform:capitalize}
+.ad-green {background:rgba(34,197,94,.15); color:#22c55e}
+.ad-red   {background:rgba(239,68,68,.15); color:#ef4444}
+.ad-yellow{background:rgba(234,179,8,.15); color:#ca8a04}
+.ad-blue  {background:rgba(59,130,246,.15);color:#3b82f6}
+.ad-gray  {background:rgba(107,114,128,.15);color:#6b7280}
+.ad-btn-sm{padding:7px 14px!important;font-size:.8rem!important}
+.ad-link-btn{background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:.8rem;font-weight:600}
+.ad-input{padding:9px 13px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:.88rem;outline:none;width:100%;transition:border-color .2s}
+.ad-input:focus{border-color:#8b5cf6}
+.ad-textarea{padding:9px 13px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:.88rem;outline:none;width:100%;resize:vertical;font-family:inherit}
+.ad-form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.ad-form-group label{font-size:.82rem;font-weight:600;color:var(--text-primary)}
+.ad-table{width:100%;border-collapse:collapse;font-size:.84rem}
+.ad-table th{text-align:left;padding:9px 12px;background:var(--bg-primary);color:#8b5cf6;font-size:.7rem;text-transform:capitalize;letter-spacing:.5px;border-bottom:1px solid var(--border-color)}
+.ad-table td{padding:11px 12px;border-bottom:1px solid var(--border-color);color:var(--text-primary)}
+.ad-table tr:last-child td{border-bottom:none}
+.ad-table tr:hover td{background:var(--bg-primary)}
+.ad-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.ad-filters .ad-input{max-width:240px}
+.ad-filter-btn{padding:7px 14px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-secondary);font-size:.8rem;cursor:pointer;text-transform:capitalize;transition:all .2s}
+.ad-filter-btn:hover{border-color:#8b5cf6;color:#8b5cf6}
+.ad-filter-active{background:#8b5cf6!important;color:#fff!important;border-color:#8b5cf6!important}
+.ad-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.ad-kpi-card:hover{transform:translateY(-3px)}
+.ad-kpi-icon{width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.ad-two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ad-bar-chart{display:flex;align-items:flex-end;gap:5px;height:130px;padding:6px 0}
+.ad-bar-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+.ad-bar{width:100%;background:#8b5cf6;border-radius:4px 4px 0 0;min-height:6px;opacity:.8;transition:opacity .2s}
+.ad-bar-col:hover .ad-bar{opacity:1}
+.ad-bar-val{font-size:.55rem;color:var(--text-secondary)}
+.ad-bar-label{font-size:.58rem;color:var(--text-secondary)}
+.ad-heatmap{display:flex;flex-direction:column;gap:4px}
+.ad-heatmap-row{display:flex;align-items:center;gap:4px}
+.ad-heatmap-row>span{font-size:.68rem;color:var(--text-secondary);width:28px;flex-shrink:0}
+.ad-heat-cell{width:28px;height:22px;border-radius:3px;cursor:pointer;transition:transform .1s}
+.ad-heat-cell:hover{transform:scale(1.2)}
+.ad-heatmap-times{display:flex;gap:4px;padding-left:32px;margin-top:2px}
+.ad-heatmap-times span{font-size:.6rem;color:var(--text-secondary);width:28px;text-align:center}
+.ad-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem}
+.ad-modal{background:var(--bg-card);border-radius:12px;width:100%;max-width:480px;overflow:hidden}
+.ad-modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border-color)}
+.ad-modal-head h3{font-size:1rem;font-weight:700;color:var(--text-primary)}
+.ad-modal-head button{background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-secondary)}
+.ad-modal-body{padding:20px;display:flex;flex-direction:column;gap:4px}
+@media(max-width:900px){
+  .ad-sidebar{transform:translateX(-100%)}
+  .ad-sidebar-open{transform:translateX(0)}
+  .ad-overlay{display:block}
+  .ad-main{margin-left:0}
+  /* Topbar spans full width on mobile */
+  .ad-topbar{left:0}
+  .ad-menu-btn{display:block}
+  .ad-kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .ad-two-col{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .ad-kpi-grid{grid-template-columns:1fr 1fr}
+  .ad-content{padding:14px}
+}
+
+/* ── Extra styles for full Admin Dashboard ── */
+.ad-table-wrap{overflow-x:auto}
+.ad-filter-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ad-filter-label{font-size:.75rem;color:var(--text-secondary);font-weight:600;white-space:nowrap}
+
+/* Staff cards */
+.ad-staff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.ad-staff-card{display:flex;flex-direction:column}
+.ad-staff-header{display:flex;align-items:center;gap:12px}
+.ad-staff-stats{display:flex;gap:16px;margin-top:4px}
+.ad-staff-stats div{display:flex;flex-direction:column;align-items:center}
+.ad-staff-stats strong{font-size:.95rem;font-weight:800;color:var(--text-primary)}
+.ad-staff-stats span{font-size:.68rem;color:var(--text-secondary)}
+
+/* Class cards */
+.ad-class-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.ad-class-card{display:flex;flex-direction:column;gap:10px}
+.ad-class-header{display:flex;justify-content:space-between;align-items:flex-start}
+.ad-class-header strong{display:block;font-size:.95rem;font-weight:700;color:var(--text-primary)}
+.ad-class-cat{display:inline-block;font-size:.68rem;font-weight:700;color:var(--accent);text-transform:capitalize;letter-spacing:.5px;margin-top:2px}
+.ad-class-meta{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--text-secondary)}
+.ad-class-fill{margin-top:4px}
+
+/* Member detail modal */
+.ad-member-detail-grid{display:flex;flex-direction:column;gap:8px}
+.ad-detail-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-color);font-size:.85rem}
+.ad-detail-row:last-child{border-bottom:none}
+.ad-detail-label{color:var(--text-secondary);font-weight:600}
+.ad-detail-val{color:var(--text-primary);font-weight:500}
+
+/* Orange accent override for admin (matches burnt orange theme) */
+.ad-nav-item:hover{background:rgba(232,98,42,.08);color:var(--accent)}
+.ad-nav-active{background:rgba(232,98,42,.12)!important;color:var(--accent)!important;border-left-color:var(--accent)!important;font-weight:700!important}
+.ad-input:focus{border-color:var(--accent)}
+.ad-filter-btn:hover{border-color:var(--accent);color:var(--accent)}
+.ad-filter-active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
+.ad-link-btn{color:var(--accent)}
+.ad-table th{color:var(--accent)}
+.ad-sidebar-user span{color:var(--accent)}
+.ad-sidebar-brand span{background:rgba(232,98,42,.15);color:var(--accent)}
+.ad-kpi-card small{color:var(--accent)}
+
+@media(max-width:600px){
+  .ad-staff-grid{grid-template-columns:1fr}
+  .ad-class-grid{grid-template-columns:1fr}
+  .ad-filter-group{gap:4px}
+}
+
+/* ─── SIDEBAR GROUPS (DROPDOWN NAV) ─────────────────────────────────────── */
+.ad-nav-group{border-bottom:1px solid var(--border-color)}
+.ad-nav-group:last-child{border-bottom:none}
+.ad-nav-group-header{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 20px;background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:.7rem;font-weight:700;text-transform:capitalize;letter-spacing:.8px;transition:color .2s}
+.ad-nav-group-header:hover{color:var(--text-primary)}
+.ad-nav-group-items{padding:2px 0 6px}
+.ad-nav-group-items .ad-nav-item{padding-left:32px;font-size:.82rem}
+.ad-nav-chevron{font-size:.7rem;transition:transform .2s}
+.ad-nav-chevron-open{transform:rotate(180deg)}
+
+/* ─── TOAST ──────────────────────────────────────────────────────────────── */
+.ad-toast{position:fixed;bottom:24px;right:24px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;padding:12px 18px;display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:600;color:var(--text-primary);z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:ad-slide-in .3s ease}
+.ad-toast-close{background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:1.1rem;margin-left:8px;line-height:1}
+@keyframes ad-slide-in{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ─── EMPTY STATE ────────────────────────────────────────────────────────── */
+.ad-empty{text-align:center;padding:48px 20px;color:var(--text-secondary)}
+.ad-empty-icon{font-size:2.5rem;margin-bottom:12px;opacity:.4}
+.ad-empty h4{font-size:1rem;font-weight:700;color:var(--text-primary);margin:0 0 6px}
+.ad-empty p{font-size:.85rem;margin:0}
+
+/* ─── PAGINATION ─────────────────────────────────────────────────────────── */
+.ad-pagination{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 0 4px}
+.ad-page-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-secondary);font-size:.82rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.ad-page-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.ad-page-btn:disabled{opacity:.4;cursor:not-allowed}
+.ad-page-active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
+
+/* ─── WEEK GRID (ATTENDANCE CALENDAR) ───────────────────────────────────── */
+.ad-week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.ad-week-day{background:var(--bg-primary);border-radius:8px;padding:12px;text-align:center}
+.ad-week-day-label{font-size:.75rem;font-weight:700;color:var(--text-secondary);margin-bottom:6px}
+.ad-week-day-count{font-size:1.5rem;font-weight:800;margin:4px 0}
+
+/* ─── CHECK-IN ROW ───────────────────────────────────────────────────────── */
+.ad-checkin-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-color)}
+.ad-checkin-row:last-child{border-bottom:none}
+
+/* ─── SCHEDULE GRID ──────────────────────────────────────────────────────── */
+.ad-schedule-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.ad-schedule-slot{background:var(--bg-primary);border-radius:8px;padding:12px;border-left:3px solid var(--accent)}
+.ad-schedule-time{font-size:.75rem;font-weight:700;color:var(--accent);margin-bottom:4px}
+.ad-schedule-class{font-size:.88rem;margin-bottom:2px}
+.ad-schedule-trainer{font-size:.75rem;color:var(--text-secondary);margin-bottom:8px}
+.ad-schedule-fill{margin-top:8px}
+
+/* ─── TABS ───────────────────────────────────────────────────────────────── */
+.ad-tabs{display:flex;gap:4px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;padding:4px;width:fit-content;margin-bottom:16px}
+.ad-tab-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;background:none;color:var(--text-secondary);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s}
+.ad-tab-btn:hover{color:var(--text-primary)}
+.ad-tab-active{background:var(--bg-primary)!important;color:var(--accent)!important;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+/* ─── NOTIFICATION ROW ───────────────────────────────────────────────────── */
+.ad-notif-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-color);transition:background .2s}
+.ad-notif-row:last-child{border-bottom:none}
+.ad-notif-unread{background:rgba(232,98,42,.04);margin:0 -22px;padding:12px 22px}
+.ad-notif-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+
+/* ─── TOPBAR NOTIFICATION DROPDOWN ───────────────────────────────────────── */
+.ad-notif-badge{position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:.55rem;font-weight:800;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.ad-notif-dropdown{position:absolute;top:calc(100% + 10px);right:0;width:320px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.2);z-index:800;overflow:hidden}
+.ad-notif-dropdown-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border-color)}
+.ad-notif-dropdown-head strong{font-size:.9rem;color:var(--text-primary)}
+.ad-notif-item{padding:10px 16px;border-bottom:1px solid var(--border-color);cursor:pointer;transition:background .2s}
+.ad-notif-item:hover{background:var(--bg-primary)}
+.ad-notif-item-unread{background:rgba(232,98,42,.04)}
+.ad-notif-item strong{display:block;font-size:.82rem;color:var(--text-primary)}
+.ad-notif-item p{margin:2px 0;font-size:.75rem;color:var(--text-secondary)}
+.ad-notif-item small{font-size:.7rem;color:var(--text-secondary)}
+.ad-notif-view-all{display:block;width:100%;padding:10px;background:none;border:none;color:var(--accent);font-size:.82rem;font-weight:700;cursor:pointer;text-align:center;border-top:1px solid var(--border-color)}
+.ad-notif-view-all:hover{background:rgba(232,98,42,.06)}
+
+/* ─── ANNOUNCEMENT ROW ────────────────────────────────────────────────────── */
+.ad-announcement-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-color)}
+.ad-announcement-row:last-child{border-bottom:none}
+
+/* ─── TOGGLE ─────────────────────────────────────────────────────────────── */
+.ad-toggle{width:40px;height:22px;border-radius:11px;background:var(--border-color);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.ad-toggle::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s}
+.ad-toggle-on{background:#22c55e}
+.ad-toggle-on::after{transform:translateX(18px)}
+.ad-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:.88rem;color:var(--text-primary)}
+.ad-toggle-row:last-child{border-bottom:none}
+
+/* ─── OFFERS GRID ─────────────────────────────────────────────────────────── */
+.ad-offers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.ad-offer-card{transition:transform .2s}
+.ad-offer-card:hover{transform:translateY(-3px)}
+
+/* ─── PULSE ANIMATION ─────────────────────────────────────────────────────── */
+@keyframes ad-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}
+
+/* ─── RESPONSIVE ─────────────────────────────────────────────────────────── */
+@media(max-width:900px){
+  .ad-week-grid{grid-template-columns:repeat(4,1fr)}
+  .ad-schedule-grid{grid-template-columns:1fr}
+  .ad-notif-dropdown{width:280px;right:-60px}
+  .ad-offers-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:600px){
+  .ad-week-grid{grid-template-columns:repeat(2,1fr)}
+  .ad-offers-grid{grid-template-columns:1fr}
+  .ad-tabs{width:100%;overflow-x:auto}
+  .ad-tab-btn{flex:1;justify-content:center}
+}
+
+/* ─── SIDEBAR REDESIGN (v2) ─────────────────────────────────────────────── */
+
+/* Brand */
+.ad-sidebar-brand{display:flex;align-items:center;gap:8px;padding:16px 18px;border-bottom:1px solid var(--border-color)}
+.ad-brand-icon{font-size:1.3rem;line-height:1}
+.ad-brand-text{font-size:1rem;font-weight:800;color:var(--text-primary)}
+.ad-brand-text em{font-style:normal;font-size:.65rem;background:rgba(232,98,42,.15);color:var(--accent);padding:2px 7px;border-radius:50px;margin-left:5px;font-weight:700;vertical-align:middle}
+
+/* Direct Dashboard item */
+.ad-nav-direct{padding:6px 8px 2px}
+.ad-nav-direct-item{border-radius:8px!important;padding:10px 12px!important;border-left:none!important;margin:0!important}
+.ad-nav-direct-item:hover{background:rgba(232,98,42,.1)!important;color:var(--accent)!important}
+.ad-nav-direct-item.ad-nav-active{background:rgba(232,98,42,.15)!important;color:var(--accent)!important;font-weight:700!important}
+
+/* Group header */
+.ad-nav-group{border-bottom:1px solid rgba(255,255,255,.04)}
+.ad-nav-group-has-active>.ad-nav-group-header{color:var(--text-primary)}
+.ad-nav-group-header{display:flex;align-items:center;gap:9px;width:100%;padding:9px 18px;background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:.78rem;font-weight:600;text-align:left;transition:all .2s;letter-spacing:.2px}
+.ad-nav-group-header:hover{color:var(--text-primary);background:rgba(255,255,255,.03)}
+.ad-nav-group-header-open{color:var(--text-primary)!important}
+.ad-nav-group-icon{font-size:.85rem;width:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.7}
+.ad-nav-group-label{flex:1;text-transform:capitalize;letter-spacing:.6px;font-size:.68rem}
+.ad-nav-chevron{font-size:.7rem;transition:transform .25s ease;display:flex;align-items:center;opacity:.6}
+.ad-nav-chevron-open{transform:rotate(180deg);opacity:1}
+
+/* Animated group items */
+.ad-nav-group-items{overflow:hidden;max-height:0;transition:max-height .28s ease}
+.ad-nav-group-items-open{max-height:400px}
+
+/* Nav items inside groups */
+.ad-nav-group-items .ad-nav-item{padding:8px 12px 8px 38px;font-size:.82rem;border-radius:8px;margin:1px 8px;border-left:none!important;width:calc(100% - 16px)}
+.ad-nav-group-items .ad-nav-item:hover{background:rgba(232,98,42,.08);color:var(--accent)}
+.ad-nav-group-items .ad-nav-item.ad-nav-active{background:rgba(232,98,42,.14);color:var(--accent);font-weight:700}
+.ad-nav-group-items .ad-nav-item.ad-nav-active .ad-nav-icon{color:var(--accent)}
+
+/* Icon in nav items */
+.ad-nav-icon{font-size:.82rem;width:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.75}
+.ad-nav-active .ad-nav-icon{opacity:1}
+
+/* Sidebar footer links */
+.ad-sidebar-foot .ad-nav-item{border-radius:8px;margin:1px 8px;width:calc(100% - 16px);border-left:none!important;font-size:.82rem}
+.ad-sidebar-foot .ad-nav-item:hover{background:rgba(232,98,42,.08);color:var(--accent)}
+
+/* ─── COLLAPSIBLE SIDEBAR ──────────────────────────────────────────────────── */
+.ad-sidebar-collapsed{width:70px!important;transition:width .3s ease}
+.ad-sidebar-collapsed .ad-sidebar-brand{justify-content:center;padding:16px 10px}
+.ad-sidebar-collapsed .ad-brand-text{display:none}
+.ad-sidebar-collapsed .ad-nav-direct-item{justify-content:center;padding:10px!important}
+.ad-sidebar-collapsed .ad-nav-group-header{justify-content:center;padding:9px 10px}
+.ad-sidebar-collapsed .ad-nav-group-items{display:none}
+.ad-sidebar-collapsed .ad-sidebar-foot .ad-nav-item{justify-content:center;padding:10px}
+
+/* Collapse button */
+.ad-sidebar-collapse-btn{background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-left:auto;font-size:.9rem}
+.ad-sidebar-collapse-btn:hover{color:var(--accent);transform:scale(1.1)}
+.ad-sidebar-collapsed .ad-sidebar-collapse-btn{margin:0}
+
+/* Enhanced icon sizing */
+.ad-nav-icon-lg{font-size:1rem!important;width:20px!important}
+.ad-nav-group-icon-lg{font-size:1rem!important;width:20px!important}
+
+/* Tooltip on hover when collapsed */
+.ad-sidebar-collapsed [title]:hover::after{content:attr(title);position:absolute;left:75px;background:var(--bg-secondary);border:1px solid var(--border-color);padding:6px 10px;border-radius:6px;font-size:.75rem;white-space:nowrap;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none}
+
+/* Active group header highlight */
+.ad-nav-group-header-has-active{color:var(--accent)!important;font-weight:700}
+
+/* Smooth transitions */
+.ad-sidebar{transition:width .3s ease,transform .3s ease}
+.ad-main{transition:margin-left .3s ease}
+.ad-sidebar-collapsed ~ .ad-main{margin-left:70px}
+
+/* Responsive: collapsed sidebar on mobile */
+@media(max-width:900px){
+  .ad-sidebar-collapsed{width:240px!important}
+  .ad-sidebar-collapsed ~ .ad-main{margin-left:0}
+}
+
+/* ─── COLOURED ICON BUBBLES ────────────────────────────────────────────────── */
+.ad-nav-icon-bubble {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  flex-shrink: 0;
+  transition: transform .2s, box-shadow .2s;
+}
+.ad-nav-icon-bubble-sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: .75rem;
+}
+/* Group header: bubble sits left, label fills remaining space */
+.ad-nav-group-header {
+  gap: 10px !important;
+}
+/* Direct item bubble */
+.ad-nav-direct-item .ad-nav-icon-bubble {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: .9rem;
+}
+/* Hover lift */
+.ad-nav-item:hover .ad-nav-icon-bubble,
+.ad-nav-group-header:hover .ad-nav-icon-bubble {
+  transform: scale(1.12);
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+/* Active glow */
+.ad-nav-active .ad-nav-icon-bubble,
+.ad-nav-direct-item.ad-nav-active .ad-nav-icon-bubble {
+  box-shadow: 0 0 0 2px currentColor;
+  opacity: 1 !important;
+}
+/* Collapsed: center the bubble */
+.ad-sidebar-collapsed .ad-nav-icon-bubble {
+  margin: 0 auto;
+}
