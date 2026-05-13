@@ -7,7 +7,7 @@ import {
   FaMoneyBillWave, FaHeartbeat, FaServer, FaChevronDown, FaChevronRight,
   FaReceipt, FaChartBar, FaUsers as FaUsersAlt, FaBullhorn, FaEnvelope,
   FaTools, FaBuilding, FaWrench, FaPlug, FaDatabase, FaRobot,
-  FaFlag, FaEye, FaLock, FaHistory, FaExclamationTriangle,
+  FaFlag, FaEye, FaToggleOff as FaEyeSlash, FaLock, FaHistory, FaExclamationTriangle,
   FaTicketAlt, FaStar, FaSearch, FaFilter, FaSync, FaUpload,
   FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaInfoCircle,
   FaToggleOn, FaToggleOff, FaLightbulb, FaSignal, FaCloudUploadAlt,
@@ -181,8 +181,8 @@ const Toast = memo(({ msg, onClose }) => (
 
 function useToast() {
   const [toast, setToast] = useState(null);
-  const show = useCallback((msg) => {
-    setToast(msg);
+  const show = useCallback((msg, type = 'info') => {
+    setToast({ message: msg, type });
     setTimeout(() => setToast(null), 3000);
   }, []);
   return { toast, show };
@@ -591,42 +591,163 @@ function SABranches({ openForm, dataChangeKey }) {
 }
 
 // ─── CONTENT ──────────────────────────────────────────────────────────────────
-function SAContent({ openForm }) {
+function SAContent({ openForm, dataChangeKey }) {
+  const [content, setContent] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const { toast, show } = useToast();
-  const items = [
-    { id: 1, title: "Summer Fitness Tips", type: "Blog", status: "published", date: "May 1, 2026" },
-    { id: 2, title: "New Equipment Arrival", type: "Announcement", status: "published", date: "Apr 28, 2026" },
-    { id: 3, title: "Yoga Class Schedule", type: "Schedule", status: "draft", date: "Apr 25, 2026" },
-    { id: 4, title: "Member Success Story", type: "Blog", status: "published", date: "Apr 20, 2026" },
-  ];
+
+  const fetchContent = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('[SAContent] Fetching content');
+      
+      const filters = {};
+      if (typeFilter !== "all") filters.type = typeFilter;
+      if (statusFilter !== "all") filters.status = statusFilter;
+      if (search) filters.search = search;
+      
+      const response = await superAdminAPI.content.getAllContent(filters);
+      console.log('[SAContent] Response:', response);
+      const contentData = response?.data?.content || [];
+      console.log('[SAContent] Content data:', contentData);
+      setContent(Array.isArray(contentData) ? contentData : []);
+    } catch (err) {
+      console.error('[SAContent] Error fetching content:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch content');
+      show('Error loading content', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [typeFilter, statusFilter, search, show]);
+
+  useEffect(() => {
+    fetchContent();
+  }, [fetchContent]);
+
+  // Listen for data changes from parent
+  useEffect(() => {
+    if (dataChangeKey !== undefined) {
+      fetchContent();
+    }
+  }, [dataChangeKey, fetchContent]);
+
+  const handleDelete = async (contentId) => {
+    if (window.confirm('Are you sure you want to delete this content?')) {
+      try {
+        await superAdminAPI.content.deleteContent(contentId);
+        show('Content deleted successfully', 'success');
+        fetchContent();
+      } catch (err) {
+        console.error('[SAContent] Error deleting content:', err);
+        show(err.response?.data?.message || 'Failed to delete content', 'error');
+      }
+    }
+  };
+
+  const handlePublish = async (contentId, currentStatus) => {
+    try {
+      if (currentStatus === 'published') {
+        await superAdminAPI.content.unpublishContent(contentId);
+        show('Content unpublished successfully', 'success');
+      } else {
+        await superAdminAPI.content.publishContent(contentId);
+        show('Content published successfully', 'success');
+      }
+      fetchContent();
+    } catch (err) {
+      console.error('[SAContent] Error updating content status:', err);
+      show(err.response?.data?.message || 'Failed to update content', 'error');
+    }
+  };
+
   return (
     <div className="sa-section">
-      {toast && <Toast msg={toast} onClose={() => {}} />}
       <div className="sa-section-head">
         <h2><FaFileAlt style={{ marginRight: 8 }} />Content Management</h2>
         <button className="btn btn-primary sa-btn-sm" onClick={() => openForm("newContent")}><FaPlus style={{ marginRight: 6 }} />New Content</button>
       </div>
-      <div className="sa-card">
-        <table className="sa-table">
-          <thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
-          <tbody>
-            {items.map(c => (
-              <tr key={c.id}>
-                <td><strong>{c.title}</strong></td>
-                <td><SABadge s={c.type.toLowerCase()} /></td>
-                <td><SABadge s={c.status} /></td>
-                <td style={{ color: "var(--text-secondary)", fontSize: ".78rem" }}>{c.date}</td>
-                <td>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="sa-link-btn" onClick={() => show("Editing content...")}><FaEdit /></button>
-                    <button className="sa-link-btn" style={{ color: "#ef4444" }} onClick={() => show("Content deleted")}><FaTrash /></button>
-                  </div>
-                </td>
-              </tr>
+
+      {loading && <LoadingState />}
+      {error && <div className="sa-error" style={{ padding: "12px", background: "#fee2e2", color: "#991b1b", borderRadius: "4px", marginBottom: "12px" }}>Error: {error}</div>}
+      
+      {!loading && !error && (
+        <>
+          <div className="sa-filters">
+            <div className="sa-search-wrap">
+              <FaSearch className="sa-search-icon" />
+              <input 
+                className="sa-input sa-input-search" 
+                placeholder="Search content..." 
+                value={search} 
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            {["all", "blog", "announcement", "schedule", "other"].map(t => (
+              <button 
+                key={t} 
+                className={`sa-filter-btn ${typeFilter === t ? "sa-filter-active" : ""}`} 
+                onClick={() => setTypeFilter(t)}
+              >
+                {t}
+              </button>
             ))}
-          </tbody>
-        </table>
-      </div>
+            {["all", "published", "draft"].map(s => (
+              <button 
+                key={s} 
+                className={`sa-filter-btn ${statusFilter === s ? "sa-filter-active" : ""}`} 
+                onClick={() => setStatusFilter(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          <div className="sa-card">
+            {content.length === 0 ? (
+              <EmptyState title="No content found" desc="Create new content to get started" />
+            ) : (
+              <table className="sa-table">
+                <thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {content.map(c => (
+                    <tr key={c._id || c.id}>
+                      <td><strong>{c.title}</strong></td>
+                      <td><SABadge s={c.type?.toLowerCase() || 'other'} /></td>
+                      <td><SABadge s={c.status || 'draft'} /></td>
+                      <td style={{ color: "var(--text-secondary)", fontSize: ".78rem" }}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button className="sa-link-btn" onClick={() => show("Editing content...")}><FaEdit /></button>
+                          <button 
+                            className="sa-link-btn" 
+                            style={{ color: c.status === 'published' ? '#f97316' : '#22c55e' }}
+                            onClick={() => handlePublish(c._id || c.id, c.status)}
+                            title={c.status === 'published' ? 'Unpublish' : 'Publish'}
+                          >
+                            {c.status === 'published' ? <FaEye /> : <FaEyeSlash />}
+                          </button>
+                          <button 
+                            className="sa-link-btn" 
+                            style={{ color: "#ef4444" }} 
+                            onClick={() => handleDelete(c._id || c.id)}
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -2901,44 +3022,190 @@ function SALiveMonitoring() {
 
 // ─── SECURITY: AUDIT LOGS ─────────────────────────────────────────────────────
 function SAAudit() {
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const filtered = auditLog.filter(a =>
+  const [exporting, setExporting] = useState(false);
+  const { toast, show } = useToast();
+
+  // Fetch audit logs on mount
+  useEffect(() => {
+    fetchAuditLogs();
+    fetchAuditStats();
+  }, [filter]);
+
+  const fetchAuditLogs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const filters = filter !== "all" ? { type: filter } : {};
+      console.log('[SAAudit] Fetching audit logs with filters:', filters);
+      const response = await superAdminAPI.security.getAuditLogs(filters);
+      console.log('[SAAudit] Response:', response);
+      const logsData = response?.data?.logs || response?.logs || [];
+      console.log('[SAAudit] Logs data:', logsData);
+      setAuditLogs(Array.isArray(logsData) ? logsData : []);
+    } catch (err) {
+      console.error('[SAAudit] Error fetching audit logs:', err);
+      console.error('[SAAudit] Error details:', err.response?.data || err.message);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch audit logs');
+      show('Error fetching audit logs', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAuditStats = async () => {
+    try {
+      console.log('[SAAudit] Fetching audit stats');
+      const response = await superAdminAPI.security.getAuditLogStats();
+      console.log('[SAAudit] Stats response:', response);
+      setStats(response?.data || response);
+    } catch (err) {
+      console.error('[SAAudit] Error fetching audit stats:', err);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const filters = filter !== "all" ? { type: filter } : {};
+      const blob = await superAdminAPI.security.exportAuditLogs(filters, 'csv');
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `audit-logs-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      show('Audit logs exported successfully', 'success');
+    } catch (err) {
+      console.error('Error exporting audit logs:', err);
+      show('Failed to export audit logs', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const filtered = auditLogs.filter(a =>
     (filter === "all" || a.type === filter) &&
-    (a.user.toLowerCase().includes(search.toLowerCase()) || a.action.toLowerCase().includes(search.toLowerCase()))
+    (a.user?.toLowerCase().includes(search.toLowerCase()) || a.action?.toLowerCase().includes(search.toLowerCase()))
   );
+
   const typeColor = { create: "#22c55e", update: "#3b82f6", delete: "#ef4444", system: "#8b5cf6" };
+
   return (
     <div className="sa-section">
       <div className="sa-section-head">
         <h2><FaShieldAlt style={{ marginRight: 8 }} />Audit & Logs</h2>
-        <button className="btn btn-outline sa-btn-sm"><FaDownload style={{ marginRight: 6 }} />Export Log</button>
+        <button 
+          className="btn btn-outline sa-btn-sm" 
+          onClick={handleExport}
+          disabled={exporting || loading}
+        >
+          <FaDownload style={{ marginRight: 6 }} />
+          {exporting ? 'Exporting...' : 'Export Log'}
+        </button>
       </div>
+
+      {/* KPI Cards */}
       <div className="sa-kpi-grid" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
-        <KpiCard icon={<FaShieldAlt />} label="Total Events" value={auditLog.length} color="#3b82f6" />
-        <KpiCard icon={<FaPlus />} label="Create Events" value={auditLog.filter(a => a.type === "create").length} color="#22c55e" />
-        <KpiCard icon={<FaEdit />} label="Update Events" value={auditLog.filter(a => a.type === "update").length} color="#f97316" />
-        <KpiCard icon={<FaTrash />} label="Delete Events" value={auditLog.filter(a => a.type === "delete").length} color="#ef4444" />
+        {loading ? (
+          <>
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Total Events" value="—" color="#3b82f6" />
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Create Events" value="—" color="#22c55e" />
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Update Events" value="—" color="#f97316" />
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Delete Events" value="—" color="#ef4444" />
+          </>
+        ) : (
+          <>
+            <KpiCard icon={<FaShieldAlt />} label="Total Events" value={auditLogs.length} color="#3b82f6" />
+            <KpiCard icon={<FaPlus />} label="Create Events" value={auditLogs.filter(a => a.type === "create").length} color="#22c55e" />
+            <KpiCard icon={<FaEdit />} label="Update Events" value={auditLogs.filter(a => a.type === "update").length} color="#f97316" />
+            <KpiCard icon={<FaTrash />} label="Delete Events" value={auditLogs.filter(a => a.type === "delete").length} color="#ef4444" />
+          </>
+        )}
       </div>
+
+      {/* Filters */}
       <div className="sa-filters">
-        <div className="sa-search-wrap"><FaSearch className="sa-search-icon" /><input className="sa-input sa-input-search" placeholder="Search logs..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className="sa-search-wrap">
+          <FaSearch className="sa-search-icon" />
+          <input 
+            className="sa-input sa-input-search" 
+            placeholder="Search logs..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+          />
+        </div>
         {["all", "create", "update", "delete", "system"].map(f => (
-          <button key={f} className={`sa-filter-btn ${filter === f ? "sa-filter-active" : ""}`} onClick={() => setFilter(f)}>{f}</button>
+          <button 
+            key={f} 
+            className={`sa-filter-btn ${filter === f ? "sa-filter-active" : ""}`} 
+            onClick={() => setFilter(f)}
+          >
+            {f}
+          </button>
         ))}
       </div>
+
+      {/* Logs Table */}
       <div className="sa-card">
-        {filtered.length === 0 ? <EmptyState title="No audit events found" /> : (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+            <FaSpinner className="fa-spin" style={{ fontSize: '2rem', marginBottom: '10px' }} />
+            <p>Loading audit logs...</p>
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#ef4444' }}>
+            <FaExclamationCircle style={{ fontSize: '2rem', marginBottom: '10px' }} />
+            <p>{error}</p>
+            <button className="btn btn-primary sa-btn-sm" onClick={fetchAuditLogs} style={{ marginTop: '10px' }}>
+              Retry
+            </button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState title="No audit events found" />
+        ) : (
           <table className="sa-table">
-            <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th><th>IP</th><th>Type</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Target</th>
+                <th>IP</th>
+                <th>Type</th>
+              </tr>
+            </thead>
             <tbody>
               {filtered.map(a => (
-                <tr key={a.id}>
-                  <td style={{ fontSize: ".75rem", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{a.time}</td>
-                  <td><strong>{a.user}</strong></td>
+                <tr key={a.id || a._id}>
+                  <td style={{ fontSize: ".75rem", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                    {new Date(a.time || a.createdAt).toLocaleString()}
+                  </td>
+                  <td><strong>{a.user || a.userId}</strong></td>
                   <td>{a.action}</td>
-                  <td style={{ color: "var(--text-secondary)", fontSize: ".8rem" }}>{a.target}</td>
-                  <td><code style={{ fontSize: ".72rem", color: "var(--accent)" }}>{a.ip}</code></td>
-                  <td><span className="sa-badge" style={{ background: (typeColor[a.type] || "#6b7280") + "22", color: typeColor[a.type] || "#6b7280" }}>{a.type}</span></td>
+                  <td style={{ color: "var(--text-secondary)", fontSize: ".8rem" }}>{a.target || a.targetId}</td>
+                  <td><code style={{ fontSize: ".72rem", color: "var(--accent)" }}>{a.ip || a.ipAddress}</code></td>
+                  <td>
+                    <span 
+                      className="sa-badge" 
+                      style={{ 
+                        background: (typeColor[a.type] || "#6b7280") + "22", 
+                        color: typeColor[a.type] || "#6b7280" 
+                      }}
+                    >
+                      {a.type}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -2951,33 +3218,184 @@ function SAAudit() {
 
 // ─── SECURITY: LOGIN HISTORY ──────────────────────────────────────────────────
 function SALoginHistory() {
+  const [loginData, setLoginData] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [exporting, setExporting] = useState(false);
+  const { toast, show } = useToast();
+
+  // Fetch login history on mount
+  useEffect(() => {
+    fetchLoginHistory();
+    fetchLoginStats();
+  }, [filter]);
+
+  const fetchLoginHistory = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const filters = filter !== "all" ? { status: filter } : {};
+      console.log('[SALoginHistory] Fetching login history with filters:', filters);
+      const response = await superAdminAPI.security.getLoginHistory(filters);
+      console.log('[SALoginHistory] Response:', response);
+      const historyData = response?.data?.logs || response?.logs || [];
+      console.log('[SALoginHistory] History data:', historyData);
+      setLoginData(Array.isArray(historyData) ? historyData : []);
+    } catch (err) {
+      console.error('[SALoginHistory] Error fetching login history:', err);
+      console.error('[SALoginHistory] Error details:', err.response?.data || err.message);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch login history');
+      show('Error fetching login history', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLoginStats = async () => {
+    try {
+      console.log('[SALoginHistory] Fetching login stats');
+      const response = await superAdminAPI.security.getLoginStats();
+      console.log('[SALoginHistory] Stats response:', response);
+      setStats(response?.data || response);
+    } catch (err) {
+      console.error('[SALoginHistory] Error fetching login stats:', err);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const filters = filter !== "all" ? { status: filter } : {};
+      const blob = await superAdminAPI.security.exportLoginHistory(filters, 'csv');
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `login-history-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      show('Login history exported successfully', 'success');
+    } catch (err) {
+      console.error('Error exporting login history:', err);
+      show('Failed to export login history', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="sa-section">
       <div className="sa-section-head">
         <h2><FaUserClock style={{ marginRight: 8 }} />Login History</h2>
-        <button className="btn btn-outline sa-btn-sm"><FaDownload style={{ marginRight: 6 }} />Export</button>
+        <button 
+          className="btn btn-outline sa-btn-sm" 
+          onClick={handleExport}
+          disabled={exporting || loading}
+        >
+          <FaDownload style={{ marginRight: 6 }} />
+          {exporting ? 'Exporting...' : 'Export'}
+        </button>
       </div>
+
+      {/* KPI Cards */}
       <div className="sa-kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-        <KpiCard icon={<FaCheckCircle />} label="Successful Logins" value={loginHistory.filter(l => l.status === "success").length} color="#22c55e" />
-        <KpiCard icon={<FaTimesCircle />} label="Failed Attempts" value={loginHistory.filter(l => l.status === "failed").length} color="#ef4444" />
-        <KpiCard icon={<FaShieldVirus />} label="Blocked" value={loginHistory.filter(l => l.status === "blocked").length} color="#8b5cf6" />
+        {loading ? (
+          <>
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Successful Logins" value="—" color="#22c55e" />
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Failed Attempts" value="—" color="#ef4444" />
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Blocked" value="—" color="#8b5cf6" />
+          </>
+        ) : (
+          <>
+            <KpiCard 
+              icon={<FaCheckCircle />} 
+              label="Successful Logins" 
+              value={loginData.filter(l => l.status === "success").length} 
+              color="#22c55e" 
+            />
+            <KpiCard 
+              icon={<FaTimesCircle />} 
+              label="Failed Attempts" 
+              value={loginData.filter(l => l.status === "failed").length} 
+              color="#ef4444" 
+            />
+            <KpiCard 
+              icon={<FaShieldVirus />} 
+              label="Blocked" 
+              value={loginData.filter(l => l.status === "blocked").length} 
+              color="#8b5cf6" 
+            />
+          </>
+        )}
       </div>
+
+      {/* Filters */}
+      <div className="sa-filters">
+        {["all", "success", "failed", "blocked"].map(f => (
+          <button 
+            key={f} 
+            className={`sa-filter-btn ${filter === f ? "sa-filter-active" : ""}`} 
+            onClick={() => setFilter(f)}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
+      {/* Login History Table */}
       <div className="sa-card">
-        <table className="sa-table">
-          <thead><tr><th>User</th><th>Role</th><th>Time</th><th>Device</th><th>Location</th><th>Status</th></tr></thead>
-          <tbody>
-            {loginHistory.map(l => (
-              <tr key={l.id}>
-                <td><strong>{l.user}</strong></td>
-                <td><SABadge s={l.role === "—" ? "gray" : l.role} /></td>
-                <td style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{l.time}</td>
-                <td style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{l.device}</td>
-                <td style={{ fontSize: ".78rem" }}><FaMapMarkerAlt style={{ marginRight: 4, color: "var(--text-secondary)" }} />{l.location}</td>
-                <td><SABadge s={l.status} /></td>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+            <FaSpinner className="fa-spin" style={{ fontSize: '2rem', marginBottom: '10px' }} />
+            <p>Loading login history...</p>
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#ef4444' }}>
+            <FaExclamationCircle style={{ fontSize: '2rem', marginBottom: '10px' }} />
+            <p>{error}</p>
+            <button className="btn btn-primary sa-btn-sm" onClick={fetchLoginHistory} style={{ marginTop: '10px' }}>
+              Retry
+            </button>
+          </div>
+        ) : loginData.length === 0 ? (
+          <EmptyState title="No login history found" />
+        ) : (
+          <table className="sa-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Role</th>
+                <th>Time</th>
+                <th>Device</th>
+                <th>Location</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loginData.map(l => (
+                <tr key={l.id || l._id}>
+                  <td><strong>{l.user || l.userId}</strong></td>
+                  <td><SABadge s={l.role === "—" ? "gray" : l.role} /></td>
+                  <td style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>
+                    {new Date(l.time || l.createdAt).toLocaleString()}
+                  </td>
+                  <td style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{l.device || l.deviceInfo}</td>
+                  <td style={{ fontSize: ".78rem" }}>
+                    <FaMapMarkerAlt style={{ marginRight: 4, color: "var(--text-secondary)" }} />
+                    {l.location || l.ipAddress}
+                  </td>
+                  <td><SABadge s={l.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
@@ -2985,39 +3403,205 @@ function SALoginHistory() {
 
 // ─── SECURITY: SYSTEM LOGS ────────────────────────────────────────────────────
 function SASystemLogs() {
+  const [systemLogData, setSystemLogData] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
-  const filtered = systemLogs.filter(l => filter === "all" || l.level === filter);
+  const [search, setSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const { toast, show } = useToast();
+
+  // Fetch system logs on mount
+  useEffect(() => {
+    fetchSystemLogs();
+    fetchSystemLogStats();
+  }, [filter]);
+
+  const fetchSystemLogs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const filters = filter !== "all" ? { level: filter } : {};
+      console.log('[SASystemLogs] Fetching system logs with filters:', filters);
+      const response = await superAdminAPI.security.getSystemLogs(filters);
+      console.log('[SASystemLogs] Response:', response);
+      const logsData = response?.data?.data || response?.data || [];
+      console.log('[SASystemLogs] Logs data:', logsData);
+      setSystemLogData(Array.isArray(logsData) ? logsData : []);
+    } catch (err) {
+      console.error('[SASystemLogs] Error fetching system logs:', err);
+      console.error('[SASystemLogs] Error details:', err.response?.data || err.message);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch system logs');
+      show('Error fetching system logs', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSystemLogStats = async () => {
+    try {
+      console.log('[SASystemLogs] Fetching system log stats');
+      const response = await superAdminAPI.security.getSystemLogStats();
+      console.log('[SASystemLogs] Stats response:', response);
+      setStats(response?.data || response);
+    } catch (err) {
+      console.error('[SASystemLogs] Error fetching system log stats:', err);
+    }
+  };
+
+  const handleSearch = async (query) => {
+    setSearch(query);
+    if (query.trim()) {
+      try {
+        const response = await superAdminAPI.security.searchSystemLogs(query);
+        setSystemLogData(response.data || response);
+      } catch (err) {
+        console.error('Error searching system logs:', err);
+      }
+    } else {
+      fetchSystemLogs();
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const filters = filter !== "all" ? { level: filter } : {};
+      const blob = await superAdminAPI.security.exportSystemLogs(filters, 'csv');
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `system-logs-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      show('System logs exported successfully', 'success');
+    } catch (err) {
+      console.error('Error exporting system logs:', err);
+      show('Failed to export system logs', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const levelIcon = { error: <FaTimesCircle />, warning: <FaExclamationTriangle />, info: <FaInfoCircle /> };
   const levelColor = { error: "#ef4444", warning: "#f97316", info: "#3b82f6" };
+
+  const filtered = systemLogData.filter(l =>
+    (filter === "all" || l.level === filter) &&
+    (l.message?.toLowerCase().includes(search.toLowerCase()) || l.service?.toLowerCase().includes(search.toLowerCase()))
+  );
+
   return (
     <div className="sa-section">
       <div className="sa-section-head">
         <h2><FaExclamationTriangle style={{ marginRight: 8 }} />System Logs</h2>
-        <button className="btn btn-outline sa-btn-sm"><FaDownload style={{ marginRight: 6 }} />Export Logs</button>
+        <button 
+          className="btn btn-outline sa-btn-sm" 
+          onClick={handleExport}
+          disabled={exporting || loading}
+        >
+          <FaDownload style={{ marginRight: 6 }} />
+          {exporting ? 'Exporting...' : 'Export Logs'}
+        </button>
       </div>
+
+      {/* KPI Cards */}
       <div className="sa-kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-        <KpiCard icon={<FaTimesCircle />} label="Errors" value={systemLogs.filter(l => l.level === "error").length} color="#ef4444" />
-        <KpiCard icon={<FaExclamationTriangle />} label="Warnings" value={systemLogs.filter(l => l.level === "warning").length} color="#f97316" />
-        <KpiCard icon={<FaInfoCircle />} label="Info" value={systemLogs.filter(l => l.level === "info").length} color="#3b82f6" />
+        {loading ? (
+          <>
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Errors" value="—" color="#ef4444" />
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Warnings" value="—" color="#f97316" />
+            <KpiCard icon={<FaSpinner className="fa-spin" />} label="Info" value="—" color="#3b82f6" />
+          </>
+        ) : (
+          <>
+            <KpiCard 
+              icon={<FaTimesCircle />} 
+              label="Errors" 
+              value={systemLogData.filter(l => l.level === "error").length} 
+              color="#ef4444" 
+            />
+            <KpiCard 
+              icon={<FaExclamationTriangle />} 
+              label="Warnings" 
+              value={systemLogData.filter(l => l.level === "warning").length} 
+              color="#f97316" 
+            />
+            <KpiCard 
+              icon={<FaInfoCircle />} 
+              label="Info" 
+              value={systemLogData.filter(l => l.level === "info").length} 
+              color="#3b82f6" 
+            />
+          </>
+        )}
       </div>
+
+      {/* Filters & Search */}
       <div className="sa-filters">
+        <div className="sa-search-wrap">
+          <FaSearch className="sa-search-icon" />
+          <input 
+            className="sa-input sa-input-search" 
+            placeholder="Search logs..." 
+            value={search} 
+            onChange={e => handleSearch(e.target.value)} 
+          />
+        </div>
         {["all", "error", "warning", "info"].map(f => (
-          <button key={f} className={`sa-filter-btn ${filter === f ? "sa-filter-active" : ""}`} onClick={() => setFilter(f)}>{f}</button>
+          <button 
+            key={f} 
+            className={`sa-filter-btn ${filter === f ? "sa-filter-active" : ""}`} 
+            onClick={() => setFilter(f)}
+          >
+            {f}
+          </button>
         ))}
       </div>
+
+      {/* System Logs */}
       <div className="sa-card">
-        {filtered.map(l => (
-          <div key={l.id} className="sa-log-row" style={{ borderLeft: `3px solid ${levelColor[l.level]}` }}>
-            <div style={{ color: levelColor[l.level], fontSize: "1rem", flexShrink: 0 }}>{levelIcon[l.level]}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <strong style={{ fontSize: ".85rem" }}>{l.message}</strong>
-                <small style={{ color: "var(--text-secondary)" }}>{l.time}</small>
-              </div>
-              <span style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{l.service}</span>
-            </div>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+            <FaSpinner className="fa-spin" style={{ fontSize: '2rem', marginBottom: '10px' }} />
+            <p>Loading system logs...</p>
           </div>
-        ))}
+        ) : error ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#ef4444' }}>
+            <FaExclamationCircle style={{ fontSize: '2rem', marginBottom: '10px' }} />
+            <p>{error}</p>
+            <button className="btn btn-primary sa-btn-sm" onClick={fetchSystemLogs} style={{ marginTop: '10px' }}>
+              Retry
+            </button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState title="No system logs found" />
+        ) : (
+          filtered.map(l => (
+            <div key={l.id || l._id} className="sa-log-row" style={{ borderLeft: `3px solid ${levelColor[l.level]}` }}>
+              <div style={{ color: levelColor[l.level], fontSize: "1rem", flexShrink: 0 }}>
+                {levelIcon[l.level]}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <strong style={{ fontSize: ".85rem" }}>{l.message}</strong>
+                  <small style={{ color: "var(--text-secondary)" }}>
+                    {new Date(l.time || l.createdAt).toLocaleString()}
+                  </small>
+                </div>
+                <span style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>
+                  {l.service || l.source}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
@@ -3026,144 +3610,818 @@ function SASystemLogs() {
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 function SASettings() {
   const { toast, show } = useToast();
+  const [settings, setSettings] = useState({
+    gymName: '',
+    email: '',
+    phone: '',
+    timezone: 'UTC',
+    currency: 'USD',
+    logo: '',
+    primaryColor: '#ef4444',
+    tagline: '',
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('[SASettings] Fetching general settings');
+      const response = await superAdminAPI.settings.getGeneralSettings();
+      console.log('[SASettings] Response:', response);
+      const settingsData = response?.data || response;
+      console.log('[SASettings] Settings data:', settingsData);
+      setSettings(settingsData || {
+        gymName: '',
+        email: '',
+        phone: '',
+        timezone: 'UTC',
+        currency: 'USD',
+        logo: '',
+        primaryColor: '#ef4444',
+        tagline: '',
+      });
+    } catch (err) {
+      console.error('[SASettings] Error fetching settings:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch settings');
+      show('Error loading settings', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      console.log('[SASettings] Saving settings:', settings);
+      const response = await superAdminAPI.settings.updateGeneralSettings(settings);
+      console.log('[SASettings] Save response:', response);
+      show('Settings saved successfully', 'success');
+      setSettings(response?.data || settings);
+    } catch (err) {
+      console.error('[SASettings] Error saving settings:', err);
+      show(err.response?.data?.message || 'Failed to save settings', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (window.confirm('Are you sure you want to reset all settings to default?')) {
+      try {
+        setSaving(true);
+        await superAdminAPI.settings.resetSettings('general');
+        show('Settings reset to default', 'success');
+        fetchSettings();
+      } catch (err) {
+        console.error('[SASettings] Error resetting settings:', err);
+        show('Failed to reset settings', 'error');
+      } finally {
+        setSaving(false);
+      }
+    }
+  };
+
   return (
     <div className="sa-section">
-      {toast && <Toast msg={toast} onClose={() => {}} />}
-      <div className="sa-section-head"><h2><FaCog style={{ marginRight: 8 }} />General Settings</h2></div>
-      <div className="sa-two-col">
-        <div className="sa-card">
-          <div className="sa-card-head"><h3>Gym Information</h3></div>
-          {[["Gym Name", systemSettings.gymName], ["Support Email", systemSettings.email], ["Phone", systemSettings.phone], ["Timezone", systemSettings.timezone], ["Currency", systemSettings.currency]].map(([l, v]) => (
-            <div className="sa-form-group" key={l}><label>{l}</label><input className="sa-input" defaultValue={v} /></div>
-          ))}
-          <button className="btn btn-primary sa-btn-sm" style={{ marginTop: 8 }} onClick={() => show("Settings saved!")}>Save Changes</button>
-        </div>
-        <div className="sa-card">
-          <div className="sa-card-head"><h3>Branding</h3></div>
-          <div className="sa-form-group"><label>Logo URL</label><input className="sa-input" placeholder="https://..." /></div>
-          <div className="sa-form-group"><label>Primary Color</label><input className="sa-input" defaultValue="#ef4444" type="color" style={{ height: 42 }} /></div>
-          <div className="sa-form-group"><label>Tagline</label><input className="sa-input" defaultValue="Transform Your Body" /></div>
-          <button className="btn btn-primary sa-btn-sm" style={{ marginTop: 8 }} onClick={() => show("Branding updated!")}>Update Branding</button>
-        </div>
+      <div className="sa-section-head">
+        <h2><FaCog style={{ marginRight: 8 }} />General Settings</h2>
+        <button 
+          className="btn btn-outline sa-btn-sm" 
+          onClick={handleReset}
+          disabled={saving || loading}
+        >
+          Reset to Default
+        </button>
       </div>
+
+      {loading && <LoadingState />}
+      {error && <div className="sa-error" style={{ padding: "12px", background: "#fee2e2", color: "#991b1b", borderRadius: "4px", marginBottom: "12px" }}>Error: {error}</div>}
+
+      {!loading && !error && (
+        <div className="sa-two-col">
+          <div className="sa-card">
+            <div className="sa-card-head"><h3>Gym Information</h3></div>
+            <div className="sa-form-group">
+              <label>Gym Name</label>
+              <input 
+                className="sa-input" 
+                value={settings.gymName || ''} 
+                onChange={(e) => setSettings({ ...settings, gymName: e.target.value })}
+              />
+            </div>
+            <div className="sa-form-group">
+              <label>Support Email</label>
+              <input 
+                className="sa-input" 
+                type="email"
+                value={settings.email || ''} 
+                onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+              />
+            </div>
+            <div className="sa-form-group">
+              <label>Phone</label>
+              <input 
+                className="sa-input" 
+                value={settings.phone || ''} 
+                onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+              />
+            </div>
+            <div className="sa-form-group">
+              <label>Timezone</label>
+              <select 
+                className="sa-input" 
+                value={settings.timezone || 'UTC'}
+                onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+              >
+                <option>UTC</option>
+                <option>IST</option>
+                <option>EST</option>
+                <option>PST</option>
+                <option>GMT</option>
+              </select>
+            </div>
+            <div className="sa-form-group">
+              <label>Currency</label>
+              <select 
+                className="sa-input" 
+                value={settings.currency || 'USD'}
+                onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
+              >
+                <option>USD</option>
+                <option>INR</option>
+                <option>EUR</option>
+                <option>GBP</option>
+              </select>
+            </div>
+            <button 
+              className="btn btn-primary sa-btn-sm" 
+              style={{ marginTop: 8 }}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+
+          <div className="sa-card">
+            <div className="sa-card-head"><h3>Branding</h3></div>
+            <div className="sa-form-group">
+              <label>Logo URL</label>
+              <input 
+                className="sa-input" 
+                placeholder="https://..." 
+                value={settings.logo || ''}
+                onChange={(e) => setSettings({ ...settings, logo: e.target.value })}
+              />
+            </div>
+            <div className="sa-form-group">
+              <label>Primary Color</label>
+              <input 
+                className="sa-input" 
+                type="color" 
+                style={{ height: 42 }}
+                value={settings.primaryColor || '#ef4444'}
+                onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+              />
+            </div>
+            <div className="sa-form-group">
+              <label>Tagline</label>
+              <input 
+                className="sa-input" 
+                value={settings.tagline || ''}
+                onChange={(e) => setSettings({ ...settings, tagline: e.target.value })}
+              />
+            </div>
+            <button 
+              className="btn btn-primary sa-btn-sm" 
+              style={{ marginTop: 8 }}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Update Branding'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function SANotifSettings() {
   const [settings, setSettings] = useState({
-    emailNotif: true, smsAlerts: false, pushNotif: false, weeklyReports: true,
-    paymentAlerts: true, expiryReminders: true, systemAlerts: true, marketingEmails: false,
+    emailNotifications: true,
+    smsNotifications: false,
+    pushNotifications: false,
+    notifyOnNewMember: true,
+    notifyOnPayment: true,
+    notifyOnMembershipExpiry: true,
+    notifyOnSupportTicket: true,
+    notifyOnLowAttendance: false,
+    expiryReminderDays: 7,
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
   const { toast, show } = useToast();
-  const toggle = (key) => { setSettings(s => ({ ...s, [key]: !s[key] })); show("Setting updated!"); };
+
+  useEffect(() => {
+    fetchNotificationSettings();
+  }, []);
+
+  const fetchNotificationSettings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('[SANotifSettings] Fetching notification settings');
+      const response = await superAdminAPI.settings.getNotificationSettings();
+      console.log('[SANotifSettings] Response:', response);
+      const settingsData = response?.data || response;
+      console.log('[SANotifSettings] Settings data:', settingsData);
+      setSettings(settingsData || {
+        emailNotifications: true,
+        smsNotifications: false,
+        pushNotifications: false,
+        notifyOnNewMember: true,
+        notifyOnPayment: true,
+        notifyOnMembershipExpiry: true,
+        notifyOnSupportTicket: true,
+        notifyOnLowAttendance: false,
+        expiryReminderDays: 7,
+      });
+    } catch (err) {
+      console.error('[SANotifSettings] Error fetching settings:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch settings');
+      show('Error loading notification settings', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggle = (key) => {
+    setSettings(s => ({ ...s, [key]: !s[key] }));
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      console.log('[SANotifSettings] Saving settings:', settings);
+      const response = await superAdminAPI.settings.updateNotificationSettings(settings);
+      console.log('[SANotifSettings] Save response:', response);
+      show('Notification settings saved successfully', 'success');
+      setSettings(response?.data || settings);
+    } catch (err) {
+      console.error('[SANotifSettings] Error saving settings:', err);
+      show(err.response?.data?.message || 'Failed to save settings', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const rows = [
-    ["emailNotif", "Email Notifications", "Receive alerts via email"],
-    ["smsAlerts", "SMS Alerts", "Receive alerts via SMS"],
-    ["pushNotif", "Push Notifications", "Browser push notifications"],
-    ["weeklyReports", "Weekly Reports", "Automated weekly summary"],
-    ["paymentAlerts", "Payment Alerts", "Failed/successful payment alerts"],
-    ["expiryReminders", "Expiry Reminders", "Member subscription expiry alerts"],
-    ["systemAlerts", "System Alerts", "Server & platform alerts"],
-    ["marketingEmails", "Marketing Emails", "Promotional campaign emails"],
+    ["emailNotifications", "Email Notifications", "Receive alerts via email"],
+    ["smsNotifications", "SMS Notifications", "Receive alerts via SMS"],
+    ["pushNotifications", "Push Notifications", "Browser push notifications"],
+    ["notifyOnNewMember", "New Member Alerts", "Notify when new members join"],
+    ["notifyOnPayment", "Payment Alerts", "Failed/successful payment alerts"],
+    ["notifyOnMembershipExpiry", "Expiry Reminders", "Member subscription expiry alerts"],
+    ["notifyOnSupportTicket", "Support Ticket Alerts", "New support ticket notifications"],
+    ["notifyOnLowAttendance", "Low Attendance Alerts", "Alert on low member attendance"],
   ];
+
   return (
     <div className="sa-section">
-      {toast && <Toast msg={toast} onClose={() => {}} />}
-      <div className="sa-section-head"><h2><FaBell style={{ marginRight: 8 }} />Notification Settings</h2></div>
-      <div className="sa-card">
-        {rows.map(([key, label, desc]) => (
-          <div key={key} className="sa-toggle-row">
-            <div><strong style={{ display: "block", fontSize: ".88rem" }}>{label}</strong><span style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{desc}</span></div>
-            <div className={`sa-toggle ${settings[key] ? "sa-toggle-on" : ""}`} onClick={() => toggle(key)} style={{ cursor: "pointer" }} />
-          </div>
-        ))}
+      <div className="sa-section-head">
+        <h2><FaBell style={{ marginRight: 8 }} />Notification Settings</h2>
       </div>
+
+      {loading && <LoadingState />}
+      {error && <div className="sa-error" style={{ padding: "12px", background: "#fee2e2", color: "#991b1b", borderRadius: "4px", marginBottom: "12px" }}>Error: {error}</div>}
+
+      {!loading && !error && (
+        <>
+          <div className="sa-card">
+            {rows.map(([key, label, desc]) => (
+              <div key={key} className="sa-toggle-row">
+                <div>
+                  <strong style={{ display: "block", fontSize: ".88rem" }}>{label}</strong>
+                  <span style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>{desc}</span>
+                </div>
+                <div 
+                  className={`sa-toggle ${settings[key] ? "sa-toggle-on" : ""}`} 
+                  onClick={() => handleToggle(key)} 
+                  style={{ cursor: "pointer" }} 
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="sa-card">
+            <div className="sa-card-head"><h3>Notification Frequency</h3></div>
+            <div className="sa-form-group">
+              <label>Expiry Reminder Days (before expiry)</label>
+              <input 
+                className="sa-input" 
+                type="number"
+                min="1"
+                max="30"
+                value={settings.expiryReminderDays || 7}
+                onChange={(e) => setSettings({ ...settings, expiryReminderDays: parseInt(e.target.value) })}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+            <button 
+              className="btn btn-primary sa-btn-sm"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Settings'}
+            </button>
+            <button 
+              className="btn btn-outline sa-btn-sm"
+              onClick={fetchNotificationSettings}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 function SASysConfig() {
+  const [settings, setSettings] = useState({
+    sessionTimeout: 30,
+    maxLoginAttempts: 5,
+    lockoutDuration: 15,
+    passwordMinLength: 8,
+    requireSpecialChar: true,
+    requireNumber: true,
+    requireUppercase: true,
+    twoFactorAuth: false,
+    ipWhitelist: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
   const { toast, show } = useToast();
+
+  useEffect(() => {
+    fetchSecuritySettings();
+  }, []);
+
+  const fetchSecuritySettings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('[SASysConfig] Fetching security settings');
+      const response = await superAdminAPI.settings.getSecuritySettings();
+      console.log('[SASysConfig] Response:', response);
+      const settingsData = response?.data || response;
+      console.log('[SASysConfig] Settings data:', settingsData);
+      setSettings(settingsData || {
+        sessionTimeout: 30,
+        maxLoginAttempts: 5,
+        lockoutDuration: 15,
+        passwordMinLength: 8,
+        requireSpecialChar: true,
+        requireNumber: true,
+        requireUppercase: true,
+        twoFactorAuth: false,
+        ipWhitelist: [],
+      });
+    } catch (err) {
+      console.error('[SASysConfig] Error fetching settings:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch settings');
+      show('Error loading system configuration', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggle = (key) => {
+    setSettings(s => ({ ...s, [key]: !s[key] }));
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      console.log('[SASysConfig] Saving settings:', settings);
+      const response = await superAdminAPI.settings.updateSecuritySettings(settings);
+      console.log('[SASysConfig] Save response:', response);
+      show('System configuration saved successfully', 'success');
+      setSettings(response?.data || settings);
+    } catch (err) {
+      console.error('[SASysConfig] Error saving settings:', err);
+      show(err.response?.data?.message || 'Failed to save settings', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (window.confirm('Are you sure you want to reset security settings to default?')) {
+      try {
+        setSaving(true);
+        await superAdminAPI.settings.resetSettings('security');
+        show('Security settings reset to default', 'success');
+        fetchSecuritySettings();
+      } catch (err) {
+        console.error('[SASysConfig] Error resetting settings:', err);
+        show('Failed to reset settings', 'error');
+      } finally {
+        setSaving(false);
+      }
+    }
+  };
+
   return (
     <div className="sa-section">
-      {toast && <Toast msg={toast} onClose={() => {}} />}
-      <div className="sa-section-head"><h2><FaServer style={{ marginRight: 8 }} />System Configuration</h2></div>
-      <div className="sa-two-col">
-        <div className="sa-card">
-          <div className="sa-card-head"><h3>Performance</h3></div>
-          {[["Cache TTL (seconds)", "3600"], ["Max Upload Size (MB)", "50"], ["Session Timeout (min)", "30"], ["API Rate Limit (req/min)", "100"]].map(([l, v]) => (
-            <div className="sa-form-group" key={l}><label>{l}</label><input className="sa-input" defaultValue={v} type="number" /></div>
-          ))}
-          <button className="btn btn-primary sa-btn-sm" style={{ marginTop: 8 }} onClick={() => show("Config saved!")}>Save Config</button>
-        </div>
-        <div className="sa-card">
-          <div className="sa-card-head"><h3>System Toggles</h3></div>
-          {[["Maintenance Mode", false], ["Debug Logging", false], ["Two-Factor Auth", true], ["IP Whitelist", false], ["Auto-Scaling", true]].map(([l, v]) => (
-            <div key={l} className="sa-toggle-row">
-              <span>{l}</span>
-              <div className={`sa-toggle ${v ? "sa-toggle-on" : ""}`} onClick={() => show(`${l} toggled`)} style={{ cursor: "pointer" }} />
+      <div className="sa-section-head">
+        <h2><FaServer style={{ marginRight: 8 }} />System Configuration</h2>
+        <button 
+          className="btn btn-outline sa-btn-sm"
+          onClick={handleReset}
+          disabled={saving || loading}
+        >
+          Reset to Default
+        </button>
+      </div>
+
+      {loading && <LoadingState />}
+      {error && <div className="sa-error" style={{ padding: "12px", background: "#fee2e2", color: "#991b1b", borderRadius: "4px", marginBottom: "12px" }}>Error: {error}</div>}
+
+      {!loading && !error && (
+        <>
+          <div className="sa-two-col">
+            <div className="sa-card">
+              <div className="sa-card-head"><h3>Session & Security</h3></div>
+              <div className="sa-form-group">
+                <label>Session Timeout (minutes)</label>
+                <input 
+                  className="sa-input" 
+                  type="number"
+                  min="5"
+                  max="480"
+                  value={settings.sessionTimeout || 30}
+                  onChange={(e) => setSettings({ ...settings, sessionTimeout: parseInt(e.target.value) })}
+                />
+              </div>
+              <div className="sa-form-group">
+                <label>Max Login Attempts</label>
+                <input 
+                  className="sa-input" 
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={settings.maxLoginAttempts || 5}
+                  onChange={(e) => setSettings({ ...settings, maxLoginAttempts: parseInt(e.target.value) })}
+                />
+              </div>
+              <div className="sa-form-group">
+                <label>Lockout Duration (minutes)</label>
+                <input 
+                  className="sa-input" 
+                  type="number"
+                  min="5"
+                  max="120"
+                  value={settings.lockoutDuration || 15}
+                  onChange={(e) => setSettings({ ...settings, lockoutDuration: parseInt(e.target.value) })}
+                />
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
-      <div className="sa-card">
-        <div className="sa-card-head"><h3>Danger Zone</h3></div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className="btn sa-btn-sm" style={{ background: "#ef444422", color: "#ef4444", border: "1px solid #ef4444" }} onClick={() => show("Clearing cache...")}>Clear Cache</button>
-          <button className="btn sa-btn-sm" style={{ background: "#ef444422", color: "#ef4444", border: "1px solid #ef4444" }} onClick={() => show("Flushing sessions...")}>Flush Sessions</button>
-          <button className="btn sa-btn-sm" style={{ background: "#ef444422", color: "#ef4444", border: "1px solid #ef4444" }} onClick={() => show("Rebuilding search index...")}>Rebuild Index</button>
-        </div>
-      </div>
+
+            <div className="sa-card">
+              <div className="sa-card-head"><h3>Password Requirements</h3></div>
+              <div className="sa-form-group">
+                <label>Minimum Password Length</label>
+                <input 
+                  className="sa-input" 
+                  type="number"
+                  min="6"
+                  max="20"
+                  value={settings.passwordMinLength || 8}
+                  onChange={(e) => setSettings({ ...settings, passwordMinLength: parseInt(e.target.value) })}
+                />
+              </div>
+              <div className="sa-toggle-row">
+                <span>Require Special Characters</span>
+                <div 
+                  className={`sa-toggle ${settings.requireSpecialChar ? "sa-toggle-on" : ""}`} 
+                  onClick={() => handleToggle('requireSpecialChar')} 
+                  style={{ cursor: "pointer" }} 
+                />
+              </div>
+              <div className="sa-toggle-row">
+                <span>Require Numbers</span>
+                <div 
+                  className={`sa-toggle ${settings.requireNumber ? "sa-toggle-on" : ""}`} 
+                  onClick={() => handleToggle('requireNumber')} 
+                  style={{ cursor: "pointer" }} 
+                />
+              </div>
+              <div className="sa-toggle-row">
+                <span>Require Uppercase</span>
+                <div 
+                  className={`sa-toggle ${settings.requireUppercase ? "sa-toggle-on" : ""}`} 
+                  onClick={() => handleToggle('requireUppercase')} 
+                  style={{ cursor: "pointer" }} 
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="sa-card">
+            <div className="sa-card-head"><h3>Advanced Security</h3></div>
+            <div className="sa-toggle-row">
+              <div>
+                <strong style={{ display: "block", fontSize: ".88rem" }}>Two-Factor Authentication</strong>
+                <span style={{ fontSize: ".75rem", color: "var(--text-secondary)" }}>Require 2FA for all admin accounts</span>
+              </div>
+              <div 
+                className={`sa-toggle ${settings.twoFactorAuth ? "sa-toggle-on" : ""}`} 
+                onClick={() => handleToggle('twoFactorAuth')} 
+                style={{ cursor: "pointer" }} 
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+            <button 
+              className="btn btn-primary sa-btn-sm"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Configuration'}
+            </button>
+            <button 
+              className="btn btn-outline sa-btn-sm"
+              onClick={fetchSecuritySettings}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 // ─── SUPPORT: TICKETS ─────────────────────────────────────────────────────────
-function SATickets({ openForm }) {
+function SATickets({ openForm, onDataChange }) {
+  const [tickets, setTickets] = useState([]);
+  const [stats, setStats] = useState(null);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
   const { toast, show } = useToast();
-  const filtered = supportTickets.filter(t =>
-    (filter === "all" || t.status === filter) &&
-    (t.user.toLowerCase().includes(search.toLowerCase()) || t.subject.toLowerCase().includes(search.toLowerCase()))
+  const PER_PAGE = 10;
+
+  const fetchTickets = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('[SATickets] Fetching tickets with filter:', filter);
+      const filters = {
+        page,
+        limit: PER_PAGE,
+        ...(filter !== "all" && { ticketStatus: filter }),
+        ...(search && { search }),
+      };
+      const response = await superAdminAPI.support.getAllTickets(filters);
+      console.log('[SATickets] Response:', response);
+      const ticketsData = response?.data?.tickets || [];
+      console.log('[SATickets] Tickets data:', ticketsData);
+      setTickets(Array.isArray(ticketsData) ? ticketsData : []);
+    } catch (err) {
+      console.error('[SATickets] Error fetching tickets:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch tickets');
+      show('Error loading tickets', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, page, search]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      console.log('[SATickets] Fetching ticket stats');
+      const response = await superAdminAPI.support.getTicketStats();
+      console.log('[SATickets] Stats response:', response);
+      const statsData = response?.data || response;
+      console.log('[SATickets] Stats data:', statsData);
+      setStats(statsData);
+    } catch (err) {
+      console.error('[SATickets] Error fetching stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTickets();
+    fetchStats();
+  }, [fetchTickets, fetchStats]);
+
+  const handleCreateTicket = useCallback(async (ticketData) => {
+    try {
+      console.log('[SATickets] Creating ticket:', ticketData);
+      const response = await superAdminAPI.support.createTicket({
+        ticketTitle: ticketData.title || ticketData.ticketTitle,
+        ticketDescription: ticketData.description || ticketData.ticketDescription,
+        ticketCategory: (ticketData.category || ticketData.ticketCategory || 'general').toLowerCase(),
+        priorityLevel: (ticketData.priority || ticketData.priorityLevel || 'medium').toLowerCase(),
+      });
+      console.log('[SATickets] Create response:', response);
+      show('Ticket created successfully', 'success');
+      // Refresh tickets and stats after creation
+      await fetchTickets();
+      await fetchStats();
+      return true;
+    } catch (err) {
+      console.error('[SATickets] Error creating ticket:', err);
+      show(err.response?.data?.message || 'Failed to create ticket', 'error');
+      return false;
+    }
+  }, [fetchTickets, fetchStats, show]);
+
+  const handleStatusChange = async (ticketId, newStatus) => {
+    try {
+      console.log('[SATickets] Updating ticket status:', ticketId, newStatus);
+      await superAdminAPI.support.updateTicketStatus(ticketId, newStatus);
+      show(`Ticket status updated to ${newStatus}`, 'success');
+      fetchTickets();
+    } catch (err) {
+      console.error('[SATickets] Error updating status:', err);
+      show(err.response?.data?.message || 'Failed to update status', 'error');
+    }
+  };
+
+  const handleAssign = async (ticketId) => {
+    const assignToUserId = prompt('Enter user ID to assign:');
+    if (assignToUserId) {
+      try {
+        console.log('[SATickets] Assigning ticket:', ticketId, assignToUserId);
+        await superAdminAPI.support.assignTicket(ticketId, assignToUserId);
+        show('Ticket assigned successfully', 'success');
+        fetchTickets();
+      } catch (err) {
+        console.error('[SATickets] Error assigning ticket:', err);
+        show(err.response?.data?.message || 'Failed to assign ticket', 'error');
+      }
+    }
+  };
+
+  const filtered = tickets.filter(t =>
+    !search || 
+    (t.ticketTitle?.toLowerCase().includes(search.toLowerCase()) || 
+     t.createdBy?.userName?.toLowerCase().includes(search.toLowerCase()))
   );
+
+  // Store the create handler in window for FormRenderer to access
+  if (typeof window !== 'undefined') {
+    window.handleCreateTicket = handleCreateTicket;
+  }
+
   return (
     <div className="sa-section">
-      {toast && <Toast msg={toast} onClose={() => {}} />}
       <div className="sa-section-head">
         <h2><FaTicketAlt style={{ marginRight: 8 }} />Support Tickets</h2>
         <button className="btn btn-primary sa-btn-sm" onClick={() => openForm("createTicket")}><FaPlus style={{ marginRight: 6 }} />New Ticket</button>
       </div>
-      <div className="sa-kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-        <KpiCard icon={<FaExclamationCircle />} label="Open" value={supportTickets.filter(t => t.status === "open").length} color="#ef4444" />
-        <KpiCard icon={<FaSync />} label="In Progress" value={supportTickets.filter(t => t.status === "in-progress").length} color="#f97316" />
-        <KpiCard icon={<FaCheckCircle />} label="Closed" value={supportTickets.filter(t => t.status === "closed").length} color="#22c55e" />
-      </div>
+
+      {loading && !stats ? <LoadingState /> : (
+        <>
+          <div className="sa-kpi-grid" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
+            <KpiCard 
+              icon={<FaExclamationCircle />} 
+              label="Open" 
+              value={stats?.byStatus?.open || 0} 
+              color="#ef4444" 
+            />
+            <KpiCard 
+              icon={<FaSync />} 
+              label="In Progress" 
+              value={stats?.byStatus?.inProgress || 0} 
+              color="#f97316" 
+            />
+            <KpiCard 
+              icon={<FaCheckCircle />} 
+              label="Resolved" 
+              value={stats?.byStatus?.resolved || 0} 
+              color="#22c55e" 
+            />
+            <KpiCard 
+              icon={<FaCheckCircle />} 
+              label="Closed" 
+              value={stats?.byStatus?.closed || 0} 
+              color="#3b82f6" 
+            />
+            <KpiCard 
+              icon={<FaExclamationTriangle />} 
+              label="Total" 
+              value={stats?.totalTickets || 0} 
+              color="#8b5cf6" 
+            />
+          </div>
+        </>
+      )}
+
+      {error && <div className="sa-error" style={{ padding: "12px", background: "#fee2e2", color: "#991b1b", borderRadius: "4px", marginBottom: "12px" }}>Error: {error}</div>}
+
       <div className="sa-filters">
-        <div className="sa-search-wrap"><FaSearch className="sa-search-icon" /><input className="sa-input sa-input-search" placeholder="Search tickets..." value={search} onChange={e => setSearch(e.target.value)} /></div>
-        {["all", "open", "in-progress", "closed"].map(f => (
-          <button key={f} className={`sa-filter-btn ${filter === f ? "sa-filter-active" : ""}`} onClick={() => setFilter(f)}>{f}</button>
+        <div className="sa-search-wrap">
+          <FaSearch className="sa-search-icon" />
+          <input 
+            className="sa-input sa-input-search" 
+            placeholder="Search tickets..." 
+            value={search} 
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+          />
+        </div>
+        {["all", "open", "in-progress", "resolved", "closed"].map(f => (
+          <button 
+            key={f} 
+            className={`sa-filter-btn ${filter === f ? "sa-filter-active" : ""}`} 
+            onClick={() => { setFilter(f); setPage(1); }}
+          >
+            {f}
+          </button>
         ))}
       </div>
+
       <div className="sa-card">
-        {filtered.length === 0 ? <EmptyState title="No tickets found" /> : (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+            <FaSpinner className="fa-spin" style={{ fontSize: '2rem', marginBottom: '10px' }} />
+            <p>Loading tickets...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState title="No tickets found" />
+        ) : (
           <table className="sa-table">
-            <thead><tr><th>ID</th><th>User</th><th>Subject</th><th>Priority</th><th>Assigned</th><th>Created</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>User</th>
+                <th>Category</th>
+                <th>Priority</th>
+                <th>Assigned To</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
             <tbody>
               {filtered.map(t => (
-                <tr key={t.id}>
-                  <td><code style={{ fontSize: ".72rem", color: "var(--accent)" }}>{t.id}</code></td>
-                  <td><strong>{t.user}</strong></td>
-                  <td style={{ maxWidth: 180 }}>{t.subject}</td>
-                  <td><SABadge s={t.priority} /></td>
-                  <td style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{t.assigned}</td>
-                  <td style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{t.created}</td>
-                  <td><SABadge s={t.status} /></td>
+                <tr key={t._id || t.id}>
+                  <td><code style={{ fontSize: ".72rem", color: "var(--accent)" }}>{(t._id || t.id).substring(0, 8)}</code></td>
+                  <td style={{ maxWidth: 200 }}><strong>{t.ticketTitle}</strong></td>
+                  <td>{t.createdBy?.userName || 'N/A'}</td>
+                  <td><SABadge s={t.ticketCategory || 'general'} /></td>
+                  <td><SABadge s={t.priorityLevel || 'medium'} /></td>
+                  <td style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>{t.assignedTo?.userName || 'Unassigned'}</td>
+                  <td>
+                    <select 
+                      className="sa-input" 
+                      style={{ fontSize: ".78rem", padding: "4px 8px" }}
+                      value={t.ticketStatus || 'open'}
+                      onChange={(e) => handleStatusChange(t._id || t.id, e.target.value)}
+                    >
+                      <option value="open">Open</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </td>
+                  <td style={{ fontSize: ".78rem", color: "var(--text-secondary)" }}>
+                    {new Date(t.createdAt).toLocaleDateString()}
+                  </td>
                   <td>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button className="sa-link-btn" onClick={() => show(`Viewing ticket ${t.id}`)}>View</button>
-                      <button className="sa-link-btn" onClick={() => show(`Assigning ${t.id}`)}>Assign</button>
+                      <button 
+                        className="sa-link-btn" 
+                        onClick={() => show(`Viewing ticket ${(t._id || t.id).substring(0, 8)}`)}
+                      >
+                        View
+                      </button>
+                      <button 
+                        className="sa-link-btn" 
+                        onClick={() => handleAssign(t._id || t.id)}
+                      >
+                        Assign
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -3178,47 +4436,210 @@ function SATickets({ openForm }) {
 
 // ─── SUPPORT: FEEDBACK ────────────────────────────────────────────────────────
 function SAFeedback() {
-  const avgRating = (feedbackData.reduce((a, b) => a + b.rating, 0) / feedbackData.length).toFixed(1);
+  const [feedback, setFeedback] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [ratingFilter, setRatingFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { toast, show } = useToast();
+
+  const fetchFeedback = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('[SAFeedback] Fetching feedback with filter:', ratingFilter);
+      
+      const filters = {};
+      if (ratingFilter !== "all") {
+        filters.rating = parseInt(ratingFilter);
+      }
+      
+      const response = await superAdminAPI.feedback.getAllFeedback(filters);
+      console.log('[SAFeedback] Response:', response);
+      const feedbackData = response?.data?.feedback || [];
+      console.log('[SAFeedback] Feedback data:', feedbackData);
+      setFeedback(Array.isArray(feedbackData) ? feedbackData : []);
+    } catch (err) {
+      console.error('[SAFeedback] Error fetching feedback:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch feedback');
+      show('Error loading feedback', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [ratingFilter, show]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      console.log('[SAFeedback] Fetching feedback stats');
+      const response = await superAdminAPI.feedback.getFeedbackStats();
+      console.log('[SAFeedback] Stats response:', response);
+      const statsData = response?.data || response;
+      console.log('[SAFeedback] Stats data:', statsData);
+      setStats(statsData);
+    } catch (err) {
+      console.error('[SAFeedback] Error fetching stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFeedback();
+    fetchStats();
+  }, [fetchFeedback, fetchStats]);
+
+  const handleExport = async () => {
+    try {
+      console.log('[SAFeedback] Exporting feedback');
+      // Create CSV content
+      const headers = ['User', 'Rating', 'Category', 'Comment', 'Date'];
+      const rows = feedback.map(f => [
+        f.user,
+        f.rating,
+        f.category,
+        `"${(f.comment || '').replace(/"/g, '""')}"`,
+        new Date(f.date).toLocaleDateString(),
+      ]);
+      
+      const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `feedback-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      show('Feedback exported successfully', 'success');
+    } catch (err) {
+      console.error('[SAFeedback] Error exporting feedback:', err);
+      show('Failed to export feedback', 'error');
+    }
+  };
+
+  const filtered = feedback.filter(f =>
+    !search || 
+    (f.user?.toLowerCase().includes(search.toLowerCase()) || 
+     f.comment?.toLowerCase().includes(search.toLowerCase()))
+  );
+
   return (
     <div className="sa-section">
-      <div className="sa-section-head"><h2><FaStar style={{ marginRight: 8 }} />Feedback</h2></div>
-      <div className="sa-kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-        <KpiCard icon={<FaStar />} label="Average Rating" value={`${avgRating}/5`} color="#f97316" />
-        <KpiCard icon={<FaComments />} label="Total Reviews" value={feedbackData.length} color="#3b82f6" />
-        <KpiCard icon={<FaCheckCircle />} label="5-Star Reviews" value={feedbackData.filter(f => f.rating === 5).length} color="#22c55e" />
+      <div className="sa-section-head">
+        <h2><FaStar style={{ marginRight: 8 }} />Feedback</h2>
+        <button 
+          className="btn btn-outline sa-btn-sm"
+          onClick={handleExport}
+          disabled={loading}
+        >
+          <FaDownload style={{ marginRight: 6 }} />
+          Export
+        </button>
       </div>
+
+      {loading && !stats ? <LoadingState /> : (
+        <>
+          <div className="sa-kpi-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+            <KpiCard 
+              icon={<FaStar />} 
+              label="Average Rating" 
+              value={`${stats?.avgRating || 0}/5`} 
+              color="#f97316" 
+            />
+            <KpiCard 
+              icon={<FaComments />} 
+              label="Total Reviews" 
+              value={stats?.totalReviews || 0} 
+              color="#3b82f6" 
+            />
+            <KpiCard 
+              icon={<FaCheckCircle />} 
+              label="5-Star Reviews" 
+              value={stats?.fiveStarReviews || 0} 
+              color="#22c55e" 
+            />
+          </div>
+        </>
+      )}
+
+      {error && <div className="sa-error" style={{ padding: "12px", background: "#fee2e2", color: "#991b1b", borderRadius: "4px", marginBottom: "12px" }}>Error: {error}</div>}
+
       <div className="sa-card">
         <div className="sa-card-head"><h3>Rating Distribution</h3></div>
-        {[5, 4, 3, 2, 1].map(r => {
-          const count = feedbackData.filter(f => f.rating === r).length;
+        {stats && [5, 4, 3, 2, 1].map(r => {
+          const count = stats.ratingDistribution[r] || 0;
+          const percentage = stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
           return (
             <div key={r} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
               <span style={{ width: 20, fontSize: ".82rem", fontWeight: 700 }}>{r}★</span>
               <div style={{ flex: 1, background: "var(--bg-primary)", borderRadius: 4, height: 10 }}>
-                <div style={{ width: `${(count / feedbackData.length) * 100}%`, height: "100%", background: "#f97316", borderRadius: 4 }} />
+                <div style={{ width: `${percentage}%`, height: "100%", background: "#f97316", borderRadius: 4 }} />
               </div>
-              <span style={{ width: 20, fontSize: ".78rem", color: "var(--text-secondary)" }}>{count}</span>
+              <span style={{ width: 30, fontSize: ".78rem", color: "var(--text-secondary)" }}>{count}</span>
             </div>
           );
         })}
       </div>
+
+      <div className="sa-filters">
+        <div className="sa-search-wrap">
+          <FaSearch className="sa-search-icon" />
+          <input 
+            className="sa-input sa-input-search" 
+            placeholder="Search feedback..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        {["all", "5", "4", "3", "2", "1"].map(r => (
+          <button 
+            key={r} 
+            className={`sa-filter-btn ${ratingFilter === r ? "sa-filter-active" : ""}`} 
+            onClick={() => setRatingFilter(r)}
+          >
+            {r === "all" ? "All Ratings" : `${r}★`}
+          </button>
+        ))}
+      </div>
+
       <div className="sa-card">
         <div className="sa-card-head"><h3>Recent Feedback</h3></div>
-        {feedbackData.map(f => (
-          <div key={f.id} className="sa-feedback-row">
-            <div className="sa-feedback-head">
-              <strong>{f.user}</strong>
-              <div style={{ display: "flex", gap: 2 }}>
-                {Array.from({ length: 5 }, (_, i) => (
-                  <FaStar key={i} style={{ color: i < f.rating ? "#f97316" : "var(--border-color)", fontSize: ".8rem" }} />
-                ))}
-              </div>
-              <SABadge s={f.category.toLowerCase()} />
-              <small style={{ color: "var(--text-secondary)", marginLeft: "auto" }}>{f.date}</small>
-            </div>
-            <p style={{ margin: "6px 0 0", fontSize: ".85rem", color: "var(--text-secondary)" }}>{f.comment}</p>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+            <FaSpinner className="fa-spin" style={{ fontSize: '2rem', marginBottom: '10px' }} />
+            <p>Loading feedback...</p>
           </div>
-        ))}
+        ) : filtered.length === 0 ? (
+          <EmptyState title="No feedback found" />
+        ) : (
+          filtered.map(f => (
+            <div key={f._id || f.id} className="sa-feedback-row">
+              <div className="sa-feedback-head">
+                <strong>{f.user}</strong>
+                <div style={{ display: "flex", gap: 2 }}>
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <FaStar 
+                      key={i} 
+                      style={{ 
+                        color: i < f.rating ? "#f97316" : "var(--border-color)", 
+                        fontSize: ".8rem" 
+                      }} 
+                    />
+                  ))}
+                </div>
+                <SABadge s={f.category?.toLowerCase() || 'general'} />
+                <small style={{ color: "var(--text-secondary)", marginLeft: "auto" }}>
+                  {new Date(f.date).toLocaleDateString()}
+                </small>
+              </div>
+              <p style={{ margin: "6px 0 0", fontSize: ".85rem", color: "var(--text-secondary)" }}>
+                {f.comment}
+              </p>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
@@ -3356,7 +4777,7 @@ function renderSection(active, openForm, dataChangeKey) {
     overview:             <SAOverview />,
     users:                <SAUsers openForm={openForm} dataChangeKey={dataChangeKey} />,
     branches:             <SABranches openForm={openForm} dataChangeKey={dataChangeKey} />,
-    content:              <SAContent openForm={openForm} />,
+    content:              <SAContent openForm={openForm} dataChangeKey={dataChangeKey} />,
     billing:              <SABilling />,
     revenue:              <SARevenue />,
     transactions:         <SATransactions />,
@@ -3440,14 +4861,85 @@ export default function SuperAdminDashboardPage() {
   const allItems = [DASHBOARD_ITEM, ...NAV_GROUPS.flatMap(g => g.items)];
   const currentLabel = allItems.find(i => i.id === active)?.label || "Dashboard";
 
-  const handleFormSubmit = () => {
-    closeForm();
-    setToast(`✅ ${formTitles[activeForm] || "Action"} completed successfully!`);
-    setTimeout(() => setToast(null), 3500);
-    
-    // Trigger data refresh for affected components
-    if (activeForm === 'createUser' || activeForm === 'createBranch') {
-      setDataChangeKey(prev => prev + 1);
+  const handleFormSubmit = async (formDataSubmitted) => {
+    try {
+      // Handle ticket creation
+      if (activeForm === 'createTicket') {
+        const ticketData = {
+          ticketTitle: formDataSubmitted.subject,
+          ticketDescription: formDataSubmitted.description,
+          ticketCategory: formDataSubmitted.category || 'general',
+          priorityLevel: formDataSubmitted.priority || 'medium',
+        };
+        
+        console.log('[handleFormSubmit] Creating ticket with data:', ticketData);
+        console.log('[handleFormSubmit] window.handleCreateTicket exists:', !!window.handleCreateTicket);
+        
+        // Call the handler stored in window by SATickets component
+        if (window.handleCreateTicket) {
+          const success = await window.handleCreateTicket(ticketData);
+          console.log('[handleFormSubmit] Ticket creation result:', success);
+          if (success) {
+            closeForm();
+            setToast({ message: '✅ Ticket created successfully!', type: 'success' });
+            setTimeout(() => setToast(null), 3500);
+            return;
+          } else {
+            // If creation failed, don't close the form
+            console.error('[handleFormSubmit] Ticket creation failed');
+            return;
+          }
+        } else {
+          console.error('[handleFormSubmit] window.handleCreateTicket not found');
+          setToast({ message: '❌ Error: Ticket handler not available', type: 'error' });
+          setTimeout(() => setToast(null), 3500);
+          return;
+        }
+      }
+
+      // Handle content creation
+      if (activeForm === 'newContent') {
+        const contentData = {
+          title: formDataSubmitted.title,
+          description: formDataSubmitted.description,
+          type: formDataSubmitted.type || 'blog',
+          content: formDataSubmitted.content || '',
+          status: formDataSubmitted.status || 'draft',
+        };
+        
+        console.log('[handleFormSubmit] Creating content with data:', contentData);
+        
+        try {
+          const response = await superAdminAPI.content.createContent(contentData);
+          console.log('[handleFormSubmit] Content creation response:', response);
+          
+          closeForm();
+          setToast({ message: '✅ Content created successfully!', type: 'success' });
+          setTimeout(() => setToast(null), 3500);
+          
+          // Trigger data refresh for content component
+          setDataChangeKey(prev => prev + 1);
+          return;
+        } catch (err) {
+          console.error('[handleFormSubmit] Content creation error:', err);
+          setToast({ message: `❌ Error: ${err.response?.data?.message || err.message || 'Failed to create content'}`, type: 'error' });
+          setTimeout(() => setToast(null), 3500);
+          return;
+        }
+      }
+      
+      closeForm();
+      setToast({ message: `✅ ${formTitles[activeForm] || "Action"} completed successfully!`, type: 'success' });
+      setTimeout(() => setToast(null), 3500);
+      
+      // Trigger data refresh for affected components
+      if (activeForm === 'createUser' || activeForm === 'createBranch') {
+        setDataChangeKey(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error('[handleFormSubmit] Error:', err);
+      setToast({ message: '❌ An error occurred', type: 'error' });
+      setTimeout(() => setToast(null), 3500);
     }
   };
 
@@ -3496,12 +4988,13 @@ export default function SuperAdminDashboardPage() {
         <div style={{
           position: "fixed", bottom: 24, right: 24, zIndex: 10000,
           background: "var(--bg-secondary)", border: "1px solid var(--border-color)",
-          borderLeft: "4px solid #22c55e", borderRadius: 10,
+          borderLeft: `4px solid ${toast.type === 'error' ? '#ef4444' : toast.type === 'success' ? '#22c55e' : '#3b82f6'}`,
+          borderRadius: 10,
           padding: "14px 20px", fontSize: ".88rem", color: "var(--text-primary)",
           boxShadow: "0 8px 24px rgba(0,0,0,.2)", animation: "slideUp 0.3s ease-out",
           display: "flex", alignItems: "center", gap: 10, maxWidth: 360,
         }}>
-          {toast}
+          {toast.message}
           <button onClick={() => setToast(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", marginLeft: "auto", fontSize: "1.1rem" }}>×</button>
         </div>
       )}

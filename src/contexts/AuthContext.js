@@ -82,14 +82,14 @@ export function AuthProvider({ children }) {
       } catch (superAdminError) {
         console.log('[Auth] SuperAdmin login failed:', superAdminError.message);
         
-        // If SuperAdmin login fails, try member login
+        // If SuperAdmin login fails, try Admin login
         try {
-          const response = await authAPI.login(email, password);
-          console.log('[Auth] Member login response:', response);
+          const response = await api.post('/admin/auth/login', { email, password });
+          console.log('[Auth] Admin login response:', response);
           
-          if (response.success && response.data) {
-            const { user: userData, token } = response.data;
-            console.log('[Auth] Member login successful, user:', userData);
+          if (response.data && response.data.data) {
+            const { admin: userData, token } = response.data.data;
+            console.log('[Auth] Admin login successful, user:', userData);
             
             // Save token and user data
             localStorage.setItem('gym-auth-token', token);
@@ -99,9 +99,30 @@ export function AuthProvider({ children }) {
             
             return { success: true, user: userData };
           }
-        } catch (memberError) {
-          console.log('[Auth] Member login also failed:', memberError.message);
-          throw memberError;
+        } catch (adminError) {
+          console.log('[Auth] Admin login also failed:', adminError.message);
+          
+          // If Admin login fails, try member login
+          try {
+            const response = await authAPI.login(email, password);
+            console.log('[Auth] Member login response:', response);
+            
+            if (response.success && response.data) {
+              const { user: userData, token } = response.data;
+              console.log('[Auth] Member login successful, user:', userData);
+              
+              // Save token and user data
+              localStorage.setItem('gym-auth-token', token);
+              localStorage.setItem('gym-auth-user', JSON.stringify(userData));
+              setUser(userData);
+              setLoading(false);
+              
+              return { success: true, user: userData };
+            }
+          } catch (memberError) {
+            console.log('[Auth] Member login also failed:', memberError.message);
+            throw memberError;
+          }
         }
       }
     } catch (error) {

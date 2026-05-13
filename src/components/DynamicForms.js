@@ -1363,7 +1363,7 @@ export function CreateTicketForm({ onSubmit, onCancel, accentColor }) {
           value={formData.category}
           onChange={(e) => set("category", e.target.value)}
           placeholder="Select category"
-          options={["Technical", "Billing", "Account", "Equipment", "General"]}
+          options={["technical", "payment", "membership", "trainer", "branch", "general"]}
         />
         <SelectField
           label="Priority"
@@ -1484,9 +1484,10 @@ export function AddFeatureFlagForm({ onSubmit, onCancel, accentColor }) {
 export function NewContentForm({ onSubmit, onCancel, accentColor }) {
   const [formData, setFormData] = useState({
     title: "",
+    description: "",
     type: "",
     status: "draft",
-    body: "",
+    content: "",
     tags: "",
   });
   const [errors, setErrors] = useState({});
@@ -1495,6 +1496,7 @@ export function NewContentForm({ onSubmit, onCancel, accentColor }) {
   const validate = () => {
     const newErrors = {};
     if (!formData.title.trim()) newErrors.title = "Title is required";
+    if (!formData.description.trim()) newErrors.description = "Description is required";
     if (!formData.type) newErrors.type = "Content type is required";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -1521,6 +1523,14 @@ export function NewContentForm({ onSubmit, onCancel, accentColor }) {
         error={errors.title}
         placeholder="Content title"
       />
+      <InputField
+        label="Description"
+        required
+        value={formData.description}
+        onChange={(e) => set("description", e.target.value)}
+        error={errors.description}
+        placeholder="Brief description of the content"
+      />
       <FormRow>
         <SelectField
           label="Type"
@@ -1529,7 +1539,7 @@ export function NewContentForm({ onSubmit, onCancel, accentColor }) {
           onChange={(e) => set("type", e.target.value)}
           error={errors.type}
           placeholder="Select type"
-          options={["Blog", "Announcement", "Schedule", "Promotion", "News"]}
+          options={["blog", "announcement", "schedule", "other"]}
         />
         <SelectField
           label="Status"
@@ -1540,8 +1550,8 @@ export function NewContentForm({ onSubmit, onCancel, accentColor }) {
       </FormRow>
       <TextareaField
         label="Content Body"
-        value={formData.body}
-        onChange={(e) => set("body", e.target.value)}
+        value={formData.content}
+        onChange={(e) => set("content", e.target.value)}
         placeholder="Write your content here..."
         rows={5}
       />

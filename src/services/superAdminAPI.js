@@ -139,6 +139,89 @@ export const superAdminBranchAPI = {
 };
 
 // ============================================================================
+// CONTENT MANAGEMENT
+// ============================================================================
+
+export const superAdminContentAPI = {
+  // Get all content
+  getAllContent: async (filters = {}) => {
+    try {
+      const response = await api.get('/superadmin/content', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching content:', error);
+      throw error;
+    }
+  },
+
+  // Get content by ID
+  getContentById: async (contentId) => {
+    try {
+      const response = await api.get(`/superadmin/content/${contentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching content:', error);
+      throw error;
+    }
+  },
+
+  // Create content
+  createContent: async (contentData) => {
+    try {
+      const response = await api.post('/superadmin/content', contentData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error creating content:', error);
+      throw error;
+    }
+  },
+
+  // Update content
+  updateContent: async (contentId, contentData) => {
+    try {
+      const response = await api.put(`/superadmin/content/${contentId}`, contentData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating content:', error);
+      throw error;
+    }
+  },
+
+  // Delete content
+  deleteContent: async (contentId) => {
+    try {
+      const response = await api.delete(`/superadmin/content/${contentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error deleting content:', error);
+      throw error;
+    }
+  },
+
+  // Publish content
+  publishContent: async (contentId) => {
+    try {
+      const response = await api.patch(`/superadmin/content/${contentId}/publish`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error publishing content:', error);
+      throw error;
+    }
+  },
+
+  // Unpublish content
+  unpublishContent: async (contentId) => {
+    try {
+      const response = await api.patch(`/superadmin/content/${contentId}/unpublish`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error unpublishing content:', error);
+      throw error;
+    }
+  },
+};
+
+// ============================================================================
 // FINANCIAL MANAGEMENT
 // ============================================================================
 
@@ -980,7 +1063,7 @@ export const superAdminDataManagementAPI = {
   // Get import history
   getImportHistory: async (filters = {}) => {
     try {
-      const response = await api.get('/api/superadmin/data-management/import-history', { params: filters });
+      const response = await api.get('/superadmin/data-management/import-history', { params: filters });
       return response.data;
     } catch (error) {
       console.error('[SuperAdmin] Error fetching import history:', error);
@@ -993,7 +1076,7 @@ export const superAdminDataManagementAPI = {
   // Export data
   exportData: async (exportType, format = 'csv', filters = {}) => {
     try {
-      const response = await api.post('/api/superadmin/data-management/export', {
+      const response = await api.post('/superadmin/data-management/export', {
         collection: exportType,
         format,
         filters
@@ -1010,7 +1093,7 @@ export const superAdminDataManagementAPI = {
   // Get export options
   getExportOptions: async () => {
     try {
-      const response = await api.get('/api/superadmin/data-management/export-options');
+      const response = await api.get('/superadmin/data-management/export-options');
       return response.data;
     } catch (error) {
       console.error('[SuperAdmin] Error fetching export options:', error);
@@ -1021,7 +1104,7 @@ export const superAdminDataManagementAPI = {
   // Get export history
   getExportHistory: async (filters = {}) => {
     try {
-      const response = await api.get('/api/superadmin/data-management/export-history', { params: filters });
+      const response = await api.get('/superadmin/data-management/export-history', { params: filters });
       return response.data;
     } catch (error) {
       console.error('[SuperAdmin] Error fetching export history:', error);
@@ -1034,7 +1117,7 @@ export const superAdminDataManagementAPI = {
   // Get all backups
   getBackups: async (filters = {}) => {
     try {
-      const response = await api.get('/api/superadmin/data-management/backups', { params: filters });
+      const response = await api.get('/superadmin/data-management/backups', { params: filters });
       return response.data;
     } catch (error) {
       console.error('[SuperAdmin] Error fetching backups:', error);
@@ -1045,7 +1128,7 @@ export const superAdminDataManagementAPI = {
   // Create backup
   createBackup: async (backupData = {}) => {
     try {
-      const response = await api.post('/api/superadmin/data-management/backups', backupData);
+      const response = await api.post('/superadmin/data-management/backups', backupData);
       return response.data;
     } catch (error) {
       console.error('[SuperAdmin] Error creating backup:', error);
@@ -1056,7 +1139,7 @@ export const superAdminDataManagementAPI = {
   // Restore backup
   restoreBackup: async (backupId) => {
     try {
-      const response = await api.post(`/api/superadmin/data-management/backups/${backupId}/restore`);
+      const response = await api.post(`/superadmin/data-management/backups/${backupId}/restore`);
       return response.data;
     } catch (error) {
       console.error('[SuperAdmin] Error restoring backup:', error);
@@ -1067,7 +1150,7 @@ export const superAdminDataManagementAPI = {
   // Delete backup
   deleteBackup: async (backupId) => {
     try {
-      const response = await api.delete(`/api/superadmin/data-management/backups/${backupId}`);
+      const response = await api.delete(`/superadmin/data-management/backups/${backupId}`);
       return response.data;
     } catch (error) {
       console.error('[SuperAdmin] Error deleting backup:', error);
@@ -1078,7 +1161,7 @@ export const superAdminDataManagementAPI = {
   // Download backup
   downloadBackup: async (backupId) => {
     try {
-      const response = await api.get(`/api/superadmin/data-management/backups/${backupId}/download`, {
+      const response = await api.get(`/superadmin/data-management/backups/${backupId}/download`, {
         responseType: 'blob',
       });
       return response;
@@ -1091,7 +1174,7 @@ export const superAdminDataManagementAPI = {
   // Get backup schedule
   getBackupSchedule: async () => {
     try {
-      const response = await api.get('/api/superadmin/data-management/backup-schedule');
+      const response = await api.get('/superadmin/data-management/backup-schedule');
       return response.data;
     } catch (error) {
       console.error('[SuperAdmin] Error fetching backup schedule:', error);
@@ -1102,7 +1185,7 @@ export const superAdminDataManagementAPI = {
   // Update backup schedule
   updateBackupSchedule: async (scheduleData) => {
     try {
-      const response = await api.put('/api/superadmin/data-management/backup-schedule', scheduleData);
+      const response = await api.put('/superadmin/data-management/backup-schedule', scheduleData);
       return response.data;
     } catch (error) {
       console.error('[SuperAdmin] Error updating backup schedule:', error);
@@ -1303,9 +1386,666 @@ export const superAdminAdvancedAPI = {
   },
 };
 
+// ============================================================================
+// SECURITY & AUDIT
+// ============================================================================
+
+export const superAdminSecurityAPI = {
+  // ─── AUDIT LOGS ──────────────────────────────────────────────────────────
+
+  // Get all audit logs
+  getAuditLogs: async (filters = {}) => {
+    try {
+      const response = await api.get('/settings/audit-logs', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching audit logs:', error);
+      throw error;
+    }
+  },
+
+  // Get audit log by ID
+  getAuditLogById: async (auditLogId) => {
+    try {
+      const response = await api.get(`/settings/audit-logs/${auditLogId}`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching audit log:', error);
+      throw error;
+    }
+  },
+
+  // Get audit logs by user
+  getAuditLogsByUser: async (userId, filters = {}) => {
+    try {
+      const response = await api.get(`/settings/audit-logs/user/${userId}`, { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching audit logs by user:', error);
+      throw error;
+    }
+  },
+
+  // Get audit logs by IP address
+  getAuditLogsByIP: async (ipAddress, filters = {}) => {
+    try {
+      const response = await api.get(`/settings/audit-logs/ip/${ipAddress}`, { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching audit logs by IP:', error);
+      throw error;
+    }
+  },
+
+  // Get audit log statistics
+  getAuditLogStats: async () => {
+    try {
+      const response = await api.get('/settings/audit-logs/stats');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching audit log stats:', error);
+      throw error;
+    }
+  },
+
+  // Export audit logs
+  exportAuditLogs: async (filters = {}, format = 'csv') => {
+    try {
+      const response = await api.get('/settings/audit-logs/export', {
+        params: { ...filters, format },
+        responseType: 'blob',
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error exporting audit logs:', error);
+      throw error;
+    }
+  },
+
+  // ─── LOGIN HISTORY ──────────────────────────────────────────────────────
+
+  // Get login history
+  getLoginHistory: async (filters = {}) => {
+    try {
+      const response = await api.get('/settings/login-history', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching login history:', error);
+      throw error;
+    }
+  },
+
+  // Get login history by user
+  getLoginHistoryByUser: async (userId, filters = {}) => {
+    try {
+      const response = await api.get(`/settings/login-history/user/${userId}`, { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching login history by user:', error);
+      throw error;
+    }
+  },
+
+  // Get suspicious login activities
+  getSuspiciousActivities: async (filters = {}) => {
+    try {
+      const response = await api.get('/settings/login-history/suspicious', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching suspicious activities:', error);
+      throw error;
+    }
+  },
+
+  // Get login statistics
+  getLoginStats: async () => {
+    try {
+      const response = await api.get('/settings/login-history/stats');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching login stats:', error);
+      throw error;
+    }
+  },
+
+  // Export login history
+  exportLoginHistory: async (filters = {}, format = 'csv') => {
+    try {
+      const response = await api.get('/settings/login-history/export', {
+        params: { ...filters, format },
+        responseType: 'blob',
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error exporting login history:', error);
+      throw error;
+    }
+  },
+
+  // ─── SYSTEM LOGS ────────────────────────────────────────────────────────
+
+  // Get system logs
+  getSystemLogs: async (filters = {}) => {
+    try {
+      const response = await api.get('/settings/system-logs', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching system logs:', error);
+      throw error;
+    }
+  },
+
+  // Get system log by ID
+  getSystemLogById: async (logId) => {
+    try {
+      const response = await api.get(`/settings/system-logs/${logId}`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching system log:', error);
+      throw error;
+    }
+  },
+
+  // Get system logs by level
+  getSystemLogsByLevel: async (level, filters = {}) => {
+    try {
+      const response = await api.get(`/settings/system-logs/level/${level}`, { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching system logs by level:', error);
+      throw error;
+    }
+  },
+
+  // Get system logs by service
+  getSystemLogsByService: async (service, filters = {}) => {
+    try {
+      const response = await api.get(`/settings/system-logs/service/${service}`, { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching system logs by service:', error);
+      throw error;
+    }
+  },
+
+  // Get system log statistics
+  getSystemLogStats: async () => {
+    try {
+      const response = await api.get('/settings/system-logs/stats');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching system log stats:', error);
+      throw error;
+    }
+  },
+
+  // Search system logs
+  searchSystemLogs: async (query, filters = {}) => {
+    try {
+      const response = await api.get('/settings/system-logs/search', {
+        params: { q: query, ...filters },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error searching system logs:', error);
+      throw error;
+    }
+  },
+
+  // Export system logs
+  exportSystemLogs: async (filters = {}, format = 'csv') => {
+    try {
+      const response = await api.get('/settings/system-logs/export', {
+        params: { ...filters, format },
+        responseType: 'blob',
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error exporting system logs:', error);
+      throw error;
+    }
+  },
+
+  // Clear old system logs (admin only)
+  clearOldSystemLogs: async (daysOld = 30) => {
+    try {
+      const response = await api.delete('/settings/system-logs/clear', {
+        params: { daysOld },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error clearing system logs:', error);
+      throw error;
+    }
+  },
+};
+
+// ============================================================================
+// SETTINGS
+// ============================================================================
+
+export const superAdminSettingsAPI = {
+  // ─── GENERAL SETTINGS ────────────────────────────────────────────────────
+
+  // Get general settings
+  getGeneralSettings: async () => {
+    try {
+      const response = await api.get('/settings/general');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching general settings:', error);
+      throw error;
+    }
+  },
+
+  // Update general settings
+  updateGeneralSettings: async (settingsData) => {
+    try {
+      const response = await api.put('/settings/general', settingsData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating general settings:', error);
+      throw error;
+    }
+  },
+
+  // ─── NOTIFICATION SETTINGS ──────────────────────────────────────────────
+
+  // Get notification settings
+  getNotificationSettings: async () => {
+    try {
+      const response = await api.get('/settings/notifications');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching notification settings:', error);
+      throw error;
+    }
+  },
+
+  // Update notification settings
+  updateNotificationSettings: async (settingsData) => {
+    try {
+      const response = await api.put('/settings/notifications', settingsData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating notification settings:', error);
+      throw error;
+    }
+  },
+
+  // ─── SECURITY SETTINGS ──────────────────────────────────────────────────
+
+  // Get security settings
+  getSecuritySettings: async () => {
+    try {
+      const response = await api.get('/settings/security');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching security settings:', error);
+      throw error;
+    }
+  },
+
+  // Update security settings
+  updateSecuritySettings: async (settingsData) => {
+    try {
+      const response = await api.put('/settings/security', settingsData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating security settings:', error);
+      throw error;
+    }
+  },
+
+  // ─── EMAIL SETTINGS ─────────────────────────────────────────────────────
+
+  // Get email settings
+  getEmailSettings: async () => {
+    try {
+      const response = await api.get('/settings/email');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching email settings:', error);
+      throw error;
+    }
+  },
+
+  // Update email settings
+  updateEmailSettings: async (settingsData) => {
+    try {
+      const response = await api.put('/settings/email', settingsData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating email settings:', error);
+      throw error;
+    }
+  },
+
+  // ─── BACKUP SETTINGS ────────────────────────────────────────────────────
+
+  // Get backup settings
+  getBackupSettings: async () => {
+    try {
+      const response = await api.get('/settings/backup');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching backup settings:', error);
+      throw error;
+    }
+  },
+
+  // Update backup settings
+  updateBackupSettings: async (settingsData) => {
+    try {
+      const response = await api.put('/settings/backup', settingsData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating backup settings:', error);
+      throw error;
+    }
+  },
+
+  // ─── THEME SETTINGS ─────────────────────────────────────────────────────
+
+  // Get theme settings
+  getThemeSettings: async () => {
+    try {
+      const response = await api.get('/settings/theme');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching theme settings:', error);
+      throw error;
+    }
+  },
+
+  // Update theme settings
+  updateThemeSettings: async (settingsData) => {
+    try {
+      const response = await api.put('/settings/theme', settingsData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating theme settings:', error);
+      throw error;
+    }
+  },
+
+  // ─── RESET SETTINGS ─────────────────────────────────────────────────────
+
+  // Reset settings to default
+  resetSettings: async (section) => {
+    try {
+      const response = await api.post('/settings/reset', { section });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error resetting settings:', error);
+      throw error;
+    }
+  },
+
+  // Get all settings
+  getAllSettings: async () => {
+    try {
+      const response = await api.get('/settings');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching all settings:', error);
+      throw error;
+    }
+  },
+
+  // Update all settings
+  updateAllSettings: async (settingsData) => {
+    try {
+      const response = await api.put('/settings', settingsData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating all settings:', error);
+      throw error;
+    }
+  },
+};
+
+// ============================================================================
+// SUPPORT
+// ============================================================================
+
+export const superAdminSupportAPI = {
+  // ─── SUPPORT TICKETS ────────────────────────────────────────────────────
+
+  // Get all support tickets
+  getAllTickets: async (filters = {}) => {
+    try {
+      const response = await api.get('/support', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching tickets:', error);
+      throw error;
+    }
+  },
+
+  // Get ticket by ID
+  getTicketById: async (ticketId) => {
+    try {
+      const response = await api.get(`/support/${ticketId}`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching ticket:', error);
+      throw error;
+    }
+  },
+
+  // Create new ticket
+  createTicket: async (ticketData) => {
+    try {
+      const response = await api.post('/support', ticketData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error creating ticket:', error);
+      throw error;
+    }
+  },
+
+  // Update ticket
+  updateTicket: async (ticketId, ticketData) => {
+    try {
+      const response = await api.put(`/support/${ticketId}`, ticketData);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating ticket:', error);
+      throw error;
+    }
+  },
+
+  // Delete ticket
+  deleteTicket: async (ticketId) => {
+    try {
+      const response = await api.delete(`/support/${ticketId}`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error deleting ticket:', error);
+      throw error;
+    }
+  },
+
+  // Assign ticket
+  assignTicket: async (ticketId, assignToUserId) => {
+    try {
+      const response = await api.post(`/support/${ticketId}/assign`, { assignToUserId });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error assigning ticket:', error);
+      throw error;
+    }
+  },
+
+  // Update ticket status
+  updateTicketStatus: async (ticketId, status, notes = '') => {
+    try {
+      const response = await api.patch(`/support/${ticketId}/status`, { status, notes });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error updating ticket status:', error);
+      throw error;
+    }
+  },
+
+  // Add comment to ticket
+  addComment: async (ticketId, comment, isInternal = false) => {
+    try {
+      const response = await api.post(`/support/${ticketId}/comments`, { comment, isInternal });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error adding comment:', error);
+      throw error;
+    }
+  },
+
+  // Resolve ticket
+  resolveTicket: async (ticketId, resolutionNotes) => {
+    try {
+      const response = await api.post(`/support/${ticketId}/resolve`, { resolutionNotes });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error resolving ticket:', error);
+      throw error;
+    }
+  },
+
+  // Close ticket
+  closeTicket: async (ticketId, notes = '') => {
+    try {
+      const response = await api.post(`/support/${ticketId}/close`, { notes });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error closing ticket:', error);
+      throw error;
+    }
+  },
+
+  // Reopen ticket
+  reopenTicket: async (ticketId, reason = '') => {
+    try {
+      const response = await api.post(`/support/${ticketId}/reopen`, { reason });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error reopening ticket:', error);
+      throw error;
+    }
+  },
+
+  // Get ticket statistics
+  getTicketStats: async (filters = {}) => {
+    try {
+      const response = await api.get('/support/stats', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching ticket stats:', error);
+      throw error;
+    }
+  },
+
+  // Get my tickets
+  getMyTickets: async (filters = {}) => {
+    try {
+      const response = await api.get('/support/my-tickets', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching my tickets:', error);
+      throw error;
+    }
+  },
+
+  // Get assigned to me
+  getAssignedToMe: async (filters = {}) => {
+    try {
+      const response = await api.get('/support/assigned-to-me', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching assigned tickets:', error);
+      throw error;
+    }
+  },
+};
+
+// ============================================================================
+// FEEDBACK
+// ============================================================================
+
+export const superAdminFeedbackAPI = {
+  // Get all feedback
+  getAllFeedback: async (filters = {}) => {
+    try {
+      const response = await api.get('/feedback', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching feedback:', error);
+      throw error;
+    }
+  },
+
+  // Get feedback by ID
+  getFeedbackById: async (feedbackId) => {
+    try {
+      const response = await api.get(`/feedback/${feedbackId}`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching feedback:', error);
+      throw error;
+    }
+  },
+
+  // Get feedback statistics
+  getFeedbackStats: async () => {
+    try {
+      const response = await api.get('/feedback/stats');
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching feedback stats:', error);
+      throw error;
+    }
+  },
+
+  // Get feedback by rating
+  getFeedbackByRating: async (rating) => {
+    try {
+      const response = await api.get(`/feedback/rating/${rating}`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error fetching feedback by rating:', error);
+      throw error;
+    }
+  },
+
+  // Delete feedback
+  deleteFeedback: async (feedbackId) => {
+    try {
+      const response = await api.delete(`/feedback/${feedbackId}`);
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error deleting feedback:', error);
+      throw error;
+    }
+  },
+
+  // Export feedback
+  exportFeedback: async (format = 'csv') => {
+    try {
+      const response = await api.get('/feedback/export', { 
+        params: { format },
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[SuperAdmin] Error exporting feedback:', error);
+      throw error;
+    }
+  },
+};
+
 export default {
   users: superAdminUserAPI,
   branches: superAdminBranchAPI,
+  content: superAdminContentAPI,
   financial: superAdminFinancialAPI,
   analytics: superAdminAnalyticsAPI,
   engagement: superAdminEngagementAPI,
@@ -1313,4 +2053,8 @@ export default {
   integrations: superAdminIntegrationsAPI,
   dataManagement: superAdminDataManagementAPI,
   advanced: superAdminAdvancedAPI,
+  security: superAdminSecurityAPI,
+  settings: superAdminSettingsAPI,
+  support: superAdminSupportAPI,
+  feedback: superAdminFeedbackAPI,
 };

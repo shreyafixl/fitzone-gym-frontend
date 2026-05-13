@@ -3,8 +3,8 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth, ROLE_ROUTES } from '../contexts/AuthContext';
 
 const DEMO_HINTS = [
-  { role: 'Super Admin', email: 'superadmin@gym.com', password: 'SuperAdmin@123' },
-  { role: 'Admin', email: 'admin@gym.com', password: '123456' },
+  { role: 'Super Admin', email: 'admin@fitzone.com', password: 'Admin@123456' },
+  { role: 'Admin', email: 'admin@fitzone.com', password: 'Admin@123' },
   { role: 'Trainer', email: 'trainer@gym.com', password: '123456' },
   { role: 'Member', email: 'user@gym.com', password: '123456' },
 ];
@@ -139,7 +139,7 @@ function LoginPage() {
         </form>
 
         <p className="login-footer-note">
-          Demo passwords: Super Admin uses <strong>SuperAdmin@123</strong>, others use <strong>123456</strong>
+          Demo passwords: Super Admin uses <strong>Admin@123456</strong>, Admin uses <strong>Admin@123</strong>, others use <strong>123456</strong>
         </p>
 
       </div>
