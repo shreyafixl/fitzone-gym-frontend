@@ -377,6 +377,91 @@ export function AddVendorForm({ onSubmit, onCancel, accentColor }) {
   );
 }
 
+// ─── CREATE COUPON FORM ───────────────────────────────────────────────────────
+export function CreateCouponForm({ onSubmit, onCancel, accentColor }) {
+  const [formData, setFormData] = useState({
+    title: "",
+    discount: "",
+    type: "percentage",
+    minAmount: 0,
+    maxUses: 100,
+    endDate: "",
+  });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.title.trim()) newErrors.title = "Coupon code is required";
+    if (!formData.discount) newErrors.discount = "Discount value is required";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 800));
+    onSubmit(formData);
+    setLoading(false);
+  };
+
+  const set = (key, value) => setFormData((p) => ({ ...p, [key]: value }));
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <InputField
+        label="Coupon Code"
+        required
+        value={formData.title}
+        onChange={(e) => set("title", e.target.value.toUpperCase())}
+        error={errors.title}
+        placeholder="e.g., SUMMER20"
+      />
+      <FormRow>
+        <InputField
+          label="Discount Value"
+          required
+          value={formData.discount}
+          onChange={(e) => set("discount", e.target.value)}
+          error={errors.discount}
+          placeholder="e.g., 20 or 50"
+        />
+        <SelectField
+          label="Type"
+          value={formData.type}
+          onChange={(e) => set("type", e.target.value)}
+          options={["percentage", "flat"]}
+        />
+      </FormRow>
+      <FormRow>
+        <InputField
+          label="Min Purchase Amount ($)"
+          type="number"
+          value={formData.minAmount}
+          onChange={(e) => set("minAmount", +e.target.value)}
+          placeholder="0"
+        />
+        <InputField
+          label="Max Uses"
+          type="number"
+          value={formData.maxUses}
+          onChange={(e) => set("maxUses", +e.target.value)}
+          placeholder="100"
+        />
+      </FormRow>
+      <InputField
+        label="Expiry Date"
+        type="date"
+        value={formData.endDate}
+        onChange={(e) => set("endDate", e.target.value)}
+      />
+      <FormActions onCancel={onCancel} submitLabel="Create Coupon" loading={loading} accentColor={accentColor} />
+    </form>
+  );
+}
+
 // ─── CREATE CAMPAIGN FORM ─────────────────────────────────────────────────────
 export function CreateCampaignForm({ onSubmit, onCancel, accentColor }) {
   const [formData, setFormData] = useState({
@@ -849,6 +934,7 @@ export function FormRenderer({ formType, onSubmit, onCancel, accentColor, data =
     addEquipment: <AddEquipmentForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
     addVendor: <AddVendorForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
     createCampaign: <CreateCampaignForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
+    createCoupon: <CreateCouponForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
     addMember: <AddMemberForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
     addStaff: <AddStaffForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
     createBranch: <CreateBranchForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
@@ -868,9 +954,10 @@ export function FormRenderer({ formType, onSubmit, onCancel, accentColor, data =
 export const formTitles = {
   createUser: "Create New User",
   createPlan: "Create Membership Plan",
+  createCoupon: "Create Coupon",
   addEquipment: "Add Equipment",
   addVendor: "Add Vendor",
-  createCampaign: "Create Campaign",
+  createCampaign: "Create Offer",
   addMember: "Add New Member",
   addStaff: "Add Staff Member",
   createBranch: "Create New Branch",

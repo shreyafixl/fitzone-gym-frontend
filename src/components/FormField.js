@@ -53,6 +53,12 @@ export function InputField({ label, error, required, type = "text", ...props }) 
         onBlur={(e) => (e.target.style.borderColor = error ? "#ef4444" : "var(--border-color)")}
         {...props}
       />
+      <style>{`
+        input::placeholder {
+          color: var(--text-secondary);
+          opacity: 0.6;
+        }
+      `}</style>
     </FormField>
   );
 }
@@ -79,6 +85,15 @@ export function SelectField({ label, error, required, options = [], placeholder,
           )
         )}
       </select>
+      <style>{`
+        select {
+          color: var(--text-primary);
+        }
+        select option {
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        }
+      `}</style>
     </FormField>
   );
 }
@@ -97,6 +112,12 @@ export function TextareaField({ label, error, required, rows = 3, ...props }) {
         onBlur={(e) => (e.target.style.borderColor = error ? "#ef4444" : "var(--border-color)")}
         {...props}
       />
+      <style>{`
+        textarea::placeholder {
+          color: var(--text-secondary);
+          opacity: 0.6;
+        }
+      `}</style>
     </FormField>
   );
 }
