@@ -5,7 +5,7 @@ import { useAuth, ROLE_ROUTES } from '../contexts/AuthContext';
 const DEMO_HINTS = [
   { role: 'Super Admin', email: 'superadmin@gym.com', password: 'SuperAdmin@123' },
   { role: 'Admin', email: 'admin@gym.com', password: '123456' },
-  { role: 'Trainer', email: 'trainer@gym.com', password: '123456' },
+  { role: 'Trainer', email: 'trainer@gym.com', password: 'Trainer@123' },
   { role: 'Member', email: 'user@gym.com', password: '123456' },
 ];
 
