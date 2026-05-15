@@ -18,8 +18,18 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('gym-auth-token');
+    console.log('[API Interceptor] Token check:', {
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0,
+      url: config.url,
+      method: config.method
+    });
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('[API Interceptor] Token added to request');
+    } else {
+      console.warn('[API Interceptor] No token found in localStorage');
     }
     return config;
   },
@@ -32,12 +42,21 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('[API Error] Response error:', {
+      status: error.response?.status,
+      message: error.response?.data?.message,
+      url: error.config?.url,
+      method: error.config?.method
+    });
+    
     if (error.response?.status === 401) {
+      console.warn('[API] 401 Unauthorized - Token may be invalid or expired');
       // Only redirect to login if we're not already on the login page
       // and if we have a token (meaning it expired)
       const token = localStorage.getItem('gym-auth-token');
       if (token && window.location.pathname !== '/login') {
         // Token expired or invalid - clear auth data
+        console.log('[API] Clearing auth data and redirecting to login');
         localStorage.removeItem('gym-auth-token');
         localStorage.removeItem('gym-auth-user');
         // Redirect to login

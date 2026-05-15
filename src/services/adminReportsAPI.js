@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_BASE_URL = '/api/admin';
 
 const getAuthToken = () => {
-  return localStorage.getItem('adminToken') || localStorage.getItem('token');
+  return localStorage.getItem('gym-auth-token') || localStorage.getItem('adminToken') || localStorage.getItem('token');
 };
 
 const apiClient = axios.create({
@@ -135,6 +135,7 @@ export const performanceReportAPI = {
       const response = await apiClient.get('/reports/performance', { params });
       return response.data.data || response.data;
     } catch (error) {
+      console.error('Performance report API error:', error);
       throw error.response?.data || { message: 'Failed to fetch performance report' };
     }
   },
@@ -142,8 +143,15 @@ export const performanceReportAPI = {
   getTrainerPerformance: async (params = {}) => {
     try {
       const response = await apiClient.get('/reports/performance/trainers', { params });
-      return response.data.data || response.data;
+      console.log('Raw trainer response:', response);
+      // API returns { success: true, data: [...], pagination: {...} }
+      const data = response.data?.data || response.data;
+      return Array.isArray(data) ? data : [];
     } catch (error) {
+      console.error('Trainer performance API error:', error);
+      if (error.response?.status === 404) {
+        return []; // Return empty array if endpoint not found
+      }
       throw error.response?.data || { message: 'Failed to fetch trainer performance' };
     }
   },
@@ -151,8 +159,15 @@ export const performanceReportAPI = {
   getClassPerformance: async (params = {}) => {
     try {
       const response = await apiClient.get('/reports/performance/classes', { params });
-      return response.data.data || response.data;
+      console.log('Raw class response:', response);
+      // API returns { success: true, data: [...], pagination: {...} }
+      const data = response.data?.data || response.data;
+      return Array.isArray(data) ? data : [];
     } catch (error) {
+      console.error('Class performance API error:', error);
+      if (error.response?.status === 404) {
+        return []; // Return empty array if endpoint not found
+      }
       throw error.response?.data || { message: 'Failed to fetch class performance' };
     }
   },
@@ -162,6 +177,7 @@ export const performanceReportAPI = {
       const response = await apiClient.get('/reports/performance/member-engagement', { params });
       return response.data.data || response.data;
     } catch (error) {
+      console.error('Member engagement API error:', error);
       throw error.response?.data || { message: 'Failed to fetch member engagement' };
     }
   },
@@ -174,6 +190,7 @@ export const performanceReportAPI = {
       });
       return response.data;
     } catch (error) {
+      console.error('Export performance API error:', error);
       throw error.response?.data || { message: `Failed to export performance as ${format}` };
     }
   },

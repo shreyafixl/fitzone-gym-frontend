@@ -4,7 +4,7 @@ const API_BASE_URL = '/api/admin';
 
 // Get auth token from localStorage
 const getAuthToken = () => {
-  return localStorage.getItem('adminToken') || localStorage.getItem('token');
+  return localStorage.getItem('gym-auth-token') || localStorage.getItem('adminToken') || localStorage.getItem('token');
 };
 
 // Create axios instance with default headers

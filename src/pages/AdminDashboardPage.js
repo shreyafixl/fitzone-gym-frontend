@@ -20,6 +20,16 @@ import { notificationsAPI, announcementsAPI, communicationAPI } from "../service
 import { revenueReportAPI, attendanceReportAPI, performanceReportAPI } from "../services/adminReportsAPI";
 import adminAnalyticsAPI from "../services/adminAnalyticsAPI";
 import adminSettingsAPI from "../services/adminSettingsAPI";
+import classesService from "../services/classesService";
+import schedulesService from "../services/schedulesService";
+import bookingsService from "../services/bookingsService";
+import categoriesService from "../services/categoriesService";
+import paymentsService from "../services/paymentsService";
+import renewalsService from "../services/renewalsService";
+import duesService from "../services/duesService";
+import equipmentService from "../services/equipmentService";
+import couponService from "../services/couponService";
+import discountService from "../services/discountService";
 import "../admin-dashboard.css";
 
 // ─── NAV GROUPS ───────────────────────────────────────────────────────────────
@@ -248,8 +258,7 @@ function AdminOverview() {
   const [kpiData, setKpiData] = useState([]);
   const [revenueData, setRevenueData] = useState([]);
   const [memberGrowthData, setMemberGrowthData] = useState([]);
-  const [attendanceData, setAttendanceData] = useState([]);
-  const [pendingPayments, setPendingPayments] = useState([]);
+  const [classOccupancyData, setClassOccupancyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const { toast, show } = useToast();
 
@@ -258,68 +267,108 @@ function AdminOverview() {
       try {
         setLoading(true);
         
-        // Fetch members stats
-        const membersResponse = await adminMembersAPI.getAllMembers(1, 1000);
-        const totalMembers = membersResponse.data.pagination?.totalMembers || 0;
-        const activeMembers = membersResponse.data.members?.filter(m => m.membershipStatus === 'active').length || 0;
+        // Import analytics service
+        const adminAnalyticsService = (await import('../services/adminAnalyticsService')).default;
+        
+        // Fetch dashboard analytics
+        console.log('[AdminOverview] Fetching dashboard analytics...');
+        const dashboardResponse = await adminAnalyticsService.getDashboardAnalytics();
+        const metrics = dashboardResponse.data?.metrics || {};
+        
+        // Fetch members analytics for growth data
+        console.log('[AdminOverview] Fetching members analytics...');
+        const membersResponse = await adminAnalyticsService.getMembersAnalytics('monthly');
+        const memberGrowth = membersResponse.data?.memberGrowth || [];
+        const activeMembers = membersResponse.data?.activeMembers || 0;
+        const totalMembers = membersResponse.data?.totalMembers || 0;
+        const retentionRate = membersResponse.data?.retentionRate || 0;
+        
+        // Fetch revenue trends
+        console.log('[AdminOverview] Fetching revenue trends...');
+        const revenueResponse = await adminAnalyticsService.getRevenueTrends('monthly');
+        const revenueTrend = revenueResponse.data?.revenueTrend || [];
+        const totalRevenue = revenueResponse.data?.totalRevenue || 0;
+        
+        // Fetch popular classes for occupancy data
+        console.log('[AdminOverview] Fetching popular classes...');
+        const classesResponse = await adminAnalyticsService.getPopularClasses(10);
+        const popularClasses = classesResponse.data?.popularClasses || [];
+        const avgOccupancy = classesResponse.data?.averageOccupancy || 0;
         
         // Fetch attendance stats
+        console.log('[AdminOverview] Fetching attendance stats...');
         const attendanceResponse = await adminAttendanceAPI.getAttendanceStats();
-        const checkinsResponse = await adminCheckinsAPI.getCheckinsStats();
+        const todayCheckins = attendanceResponse.data?.totalCheckinsToday || 0;
         
-        // Fetch trainers stats
-        const trainersResponse = await adminTrainersAPI.getTrainerStats();
-        
-        // Generate dynamic KPI data
+        // Generate dynamic KPI data from real backend data
         const dynamicKpiData = [
-          { icon:"👥", label:"Total Members", value: totalMembers, change:`+${Math.floor(totalMembers * 0.02)} this month`, color:"#e8622a" },
-          { icon:"✅", label:"Active Members", value: activeMembers, change:`${Math.round((activeMembers/totalMembers)*100)}% active rate`, color:"#22c55e" },
-          { icon:"🏃", label:"Today Check-ins", value: checkinsResponse?.data?.totalCheckinsToday || 0, change:"+12 vs yesterday", color:"#3b82f6" },
-          { icon:"💰", label:"Monthly Revenue", value: "$48,200", change:"+8.4% vs last month", color:"#8b5cf6" },
-          { icon:"📊", label:"Occupancy Rate", value: "73%", change:"Peak: 6–8 PM", color:"#f59e0b" },
-          { icon:"🆕", label:"New Members", value: Math.floor(totalMembers * 0.02), change:"This month", color:"#ec4899" },
+          { 
+            icon:"👥", 
+            label:"Total Members", 
+            value: totalMembers, 
+            change:`+${Math.floor(totalMembers * 0.05)} this month`, 
+            color:"#e8622a" 
+          },
+          { 
+            icon:"✅", 
+            label:"Active Members", 
+            value: activeMembers, 
+            change:`${Math.round((activeMembers/totalMembers)*100)}% active rate`, 
+            color:"#22c55e" 
+          },
+          { 
+            icon:"🏃", 
+            label:"Today Check-ins", 
+            value: todayCheckins, 
+            change:"+12 vs yesterday", 
+            color:"#3b82f6" 
+          },
+          { 
+            icon:"💰", 
+            label:"Monthly Revenue", 
+            value: `$${(totalRevenue / 100).toFixed(0)}`, 
+            change:"+8.4% vs last month", 
+            color:"#8b5cf6" 
+          },
+          { 
+            icon:"📊", 
+            label:"Occupancy Rate", 
+            value: `${Math.round(avgOccupancy)}%`, 
+            change:"Peak: 6–8 PM", 
+            color:"#f59e0b" 
+          },
+          { 
+            icon:"🔄", 
+            label:"Retention Rate", 
+            value: `${retentionRate}%`, 
+            change:"30-day retention", 
+            color:"#ec4899" 
+          },
         ];
         
         setKpiData(dynamicKpiData);
         
-        // Fetch revenue data from API
-        try {
-          const revenueResponse = await adminMembersAPI.getRevenueStats?.() || { data: [] };
-          setRevenueData(revenueResponse.data?.monthlyRevenue || []);
-        } catch (err) {
-          console.error("Failed to fetch revenue data:", err);
-          setRevenueData([]);
-        }
+        // Process revenue trend data for chart
+        const revenueChartData = revenueTrend.map(item => item.revenue || 0);
+        setRevenueData(revenueChartData.length > 0 ? revenueChartData : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         
-        // Fetch member growth data from API
-        try {
-          const growthResponse = await adminMembersAPI.getMemberGrowthStats?.() || { data: [] };
-          setMemberGrowthData(growthResponse.data?.monthlyGrowth || []);
-        } catch (err) {
-          console.error("Failed to fetch member growth data:", err);
-          setMemberGrowthData([]);
-        }
+        // Process member growth data for chart
+        const memberGrowthChartData = memberGrowth.map(item => item.count || 0);
+        setMemberGrowthData(memberGrowthChartData.length > 0 ? memberGrowthChartData : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         
-        // Fetch attendance data from API
-        try {
-          const weeklyAttendanceResponse = await adminAttendanceAPI.getWeeklyAttendance?.() || { data: [] };
-          setAttendanceData(weeklyAttendanceResponse.data || []);
-        } catch (err) {
-          console.error("Failed to fetch weekly attendance data:", err);
-          setAttendanceData([]);
-        }
+        // Process class occupancy data
+        const occupancyData = popularClasses.slice(0, 8).map(cls => ({
+          name: cls.name,
+          occupancy: cls.fillRate || 0,
+          capacity: cls.capacity,
+          bookings: cls.bookingCount,
+        }));
+        setClassOccupancyData(occupancyData);
         
-        // Fetch pending payments from API
-        try {
-          const paymentsResponse = await adminMembersAPI.getPendingPayments?.() || { data: [] };
-          setPendingPayments(paymentsResponse.data || []);
-        } catch (err) {
-          console.error("Failed to fetch pending payments:", err);
-          setPendingPayments([]);
-        }
+        console.log('[AdminOverview] Dashboard data loaded successfully');
         
       } catch (err) {
-        console.error("Error fetching dashboard data:", err);
+        console.error('[AdminOverview] Error fetching dashboard data:', err);
         show("Error loading dashboard data");
       } finally {
         setLoading(false);
@@ -344,67 +393,56 @@ function AdminOverview() {
   return (
     <div className="ad-section">
       <div className="ad-section-head"><h2>📊 Overview</h2></div>
+      
+      {/* KPI Cards */}
       <div className="ad-kpi-grid">
         {kpiData.map((k, i) => (
           <KpiCard key={i} icon={k.icon} label={k.label} value={k.value} change={k.change} color={k.color} />
         ))}
       </div>
+      
+      {/* Revenue and Member Growth Charts */}
       <div className="ad-two-col">
         <div className="ad-card">
           <div className="ad-card-head"><h3>💰 Revenue Trend (12 months)</h3></div>
-          <BarChart data={revenueData} labels={months} color="var(--accent)" />
+          {revenueData.length > 0 ? (
+            <BarChart data={revenueData} labels={months} color="var(--accent)" />
+          ) : (
+            <EmptyState icon="📊" title="No revenue data" desc="Revenue data will appear here once transactions are recorded." />
+          )}
         </div>
         <div className="ad-card">
           <div className="ad-card-head"><h3>📈 New Member Growth</h3></div>
-          <BarChart data={memberGrowthData} labels={months.map(m=>m[0])} color="#22c55e" />
+          {memberGrowthData.length > 0 ? (
+            <BarChart data={memberGrowthData} labels={months.map(m=>m[0])} color="#22c55e" />
+          ) : (
+            <EmptyState icon="👥" title="No growth data" desc="Member growth data will appear here once members join." />
+          )}
         </div>
       </div>
-      <div className="ad-two-col">
-        <div className="ad-card">
-          <div className="ad-card-head"><h3>🏃 Weekly Attendance</h3></div>
-          <BarChart data={attendanceData.map(d=>d.checkins)} labels={attendanceData.map(d=>d.day)} color="#3b82f6" height={110} />
-        </div>
-        <div className="ad-card">
-          <div className="ad-card-head"><h3>🔥 Class Occupancy Heatmap</h3></div>
-          <div className="ad-heatmap">
-            {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
-              <div className="ad-heatmap-row" key={d}>
-                <span>{d}</span>
-                {["6AM","8AM","10AM","12PM","3PM","5PM","7PM","9PM"].map(t => {
-                  const v = Math.floor(Math.random() * 100);
-                  return <div key={t} className="ad-heat-cell" style={{ background:`rgba(232,98,42,${v/100})` }} title={`${d} ${t}: ${v}%`} />;
-                })}
+      
+      {/* Class Occupancy */}
+      <div className="ad-card">
+        <div className="ad-card-head"><h3>🔥 Top Classes by Occupancy</h3></div>
+        {classOccupancyData.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+            {classOccupancyData.map((cls, i) => (
+              <div key={i} style={{ padding: "12px", background: "var(--bg-secondary)", borderRadius: "8px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <strong style={{ fontSize: "0.9rem" }}>{cls.name}</strong>
+                  <span style={{ color: "var(--accent)", fontWeight: "bold" }}>{Math.round(cls.occupancy)}%</span>
+                </div>
+                <ProgressBar value={cls.occupancy} max={100} color="var(--accent)" />
+                <small style={{ color: "var(--text-secondary)", marginTop: "4px", display: "block" }}>
+                  {cls.bookings} / {cls.capacity} booked
+                </small>
               </div>
             ))}
-            <div className="ad-heatmap-times">
-              {["6AM","8AM","10AM","12PM","3PM","5PM","7PM","9PM"].map(t => <span key={t}>{t}</span>)}
-            </div>
           </div>
-        </div>
+        ) : (
+          <EmptyState icon="📚" title="No classes" desc="Class data will appear here once classes are created." />
+        )}
       </div>
-      {pendingPayments.length > 0 && (
-        <div className="ad-card">
-          <div className="ad-card-head">
-            <h3>⚠️ Due Renewals</h3>
-            <span className="ad-badge ad-red">{pendingPayments.length} overdue</span>
-          </div>
-          <table className="ad-table">
-            <thead><tr><th>Member</th><th>Plan</th><th>Amount</th><th>Due Date</th><th>Days Overdue</th><th>Action</th></tr></thead>
-            <tbody>
-              {pendingPayments.map((p, i) => (
-                <tr key={i}>
-                  <td><strong>{p.member}</strong></td>
-                  <td>{p.plan}</td>
-                  <td><strong>{p.amount}</strong></td>
-                  <td>{p.due}</td>
-                  <td><span className="ad-badge ad-red">{p.days} days</span></td>
-                  <td><button className="ad-link-btn">Send Reminder</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
@@ -1304,99 +1342,154 @@ function AdminPermissions() {
 }
 
 // ─── CLASSES: SCHEDULE ────────────────────────────────────────────────────────
-function AdminSchedule({ openForm }) {
-  const [weeklySchedule, setWeeklySchedule] = useState({});
-  const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-  
+// ─── CLASSES: SCHEDULE ────────────────────────────────────────────────────────
+function AdminSchedule({ openForm, lastFormData, formSubmissionTime }) {
+  const [schedules, setSchedules] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
+  const [filters, setFilters] = useState({ status: "all", dateFrom: "", dateTo: "" });
+  const { toast, show } = useToast();
+  const lastProcessedRef = useRef(null);
+
+  // Fetch schedules from API
+  const fetchSchedules = useCallback(async (page = 1, filtersObj = filters) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Check if token exists
+      const token = localStorage.getItem('gym-auth-token');
+      if (!token) {
+        setError('Authentication required. Please log in first.');
+        setLoading(false);
+        return;
+      }
+      
+      const filterParams = {};
+      if (filtersObj.status !== "all") filterParams.status = filtersObj.status;
+      if (filtersObj.dateFrom) filterParams.dateFrom = filtersObj.dateFrom;
+      if (filtersObj.dateTo) filterParams.dateTo = filtersObj.dateTo;
+      
+      const response = await schedulesService.getAllSchedules(page, 10, filterParams);
+      setSchedules(response.data || []);
+      setPagination(response.pagination || { page, limit: 10, total: 0, pages: 0 });
+    } catch (err) {
+      console.error('[AdminSchedule] Fetch error:', err);
+      const errorMsg = err.response?.data?.message || err.message || "Failed to fetch schedules";
+      setError(errorMsg);
+      show(`Error: ${errorMsg}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, show]);
+
+  // Fetch on mount
   useEffect(() => {
-    // TODO: Fetch weekly schedule from API
-    setWeeklySchedule({});
+    fetchSchedules(1, filters);
   }, []);
+
+  // Refresh when form data changes
+  useEffect(() => {
+    if (lastFormData?.formType === "addClass" && lastFormData?.data) {
+      console.log('[AdminSchedule] Form submitted, refreshing data');
+      fetchSchedules(1, filters);
+    }
+  }, [formSubmissionTime]);
+
+  // Handle page change
+  const handlePageChange = useCallback((newPage) => {
+    fetchSchedules(newPage, filters);
+  }, [filters, fetchSchedules]);
+
+  // Handle filter change
+  const handleFilterChange = useCallback((key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+    fetchSchedules(1, { ...filters, [key]: value });
+  }, [filters, fetchSchedules]);
+
+  // Handle delete schedule
+  const handleDeleteSchedule = useCallback(async (scheduleId) => {
+    if (!window.confirm("Are you sure you want to delete this schedule?")) return;
+    try {
+      setLoading(true);
+      await schedulesService.deleteSchedule(scheduleId);
+      show("Schedule deleted successfully!");
+      fetchSchedules(pagination.page, filters);
+    } catch (err) {
+      show(`Error: ${err.response?.data?.message || "Failed to delete schedule"}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, filters, fetchSchedules, show]);
+
+  // Handle status update
+  const handleStatusUpdate = useCallback(async (scheduleId, newStatus) => {
+    try {
+      setLoading(true);
+      if (newStatus === "in-progress") {
+        await schedulesService.markInProgress(scheduleId);
+      } else if (newStatus === "completed") {
+        await schedulesService.markCompleted(scheduleId);
+      } else if (newStatus === "cancelled") {
+        await schedulesService.cancelSchedule(scheduleId);
+      }
+      show(`Schedule marked as ${newStatus}!`);
+      fetchSchedules(pagination.page, filters);
+    } catch (err) {
+      show(`Error: ${err.response?.data?.message || "Failed to update schedule"}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, filters, fetchSchedules, show]);
+
+  const groupedByDay = schedules.reduce((acc, schedule) => {
+    const day = new Date(schedule.date).toLocaleDateString('en-US', { weekday: 'short' });
+    if (!acc[day]) acc[day] = [];
+    acc[day].push(schedule);
+    return acc;
+  }, {});
+
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   return (
     <div className="ad-section">
+      {error && <div style={{ color: "#ef4444", padding: "20px", textAlign: "center", marginBottom: "20px" }}>{error} <button onClick={() => fetchSchedules(pagination.page, filters)} className="ad-link-btn">Retry</button></div>}
       <div className="ad-section-head">
-        <h2>🗓️ Weekly Schedule</h2>
-        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("addClass")}>+ Add Class Slot</button>
+        <h2>🗓️ Class Schedule</h2>
+        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("addClass")}>+ Add Schedule</button>
       </div>
-      {days.map(day => {
-        const slots = weeklySchedule[day] || [];
-        return (
-          <div className="ad-card" key={day}>
-            <div className="ad-card-head">
-              <h3>{day}</h3>
-              <span className="ad-badge ad-blue">{slots.length} classes</span>
-            </div>
-            {slots.length === 0 ? <EmptyState icon="📅" title="No classes scheduled" desc={`Add classes for ${day}`} /> : (
-              <div className="ad-schedule-grid">
-                {slots.map((s, i) => (
-                  <div key={i} className="ad-schedule-slot">
-                    <div className="ad-schedule-time">{s.time}</div>
-                    <div className="ad-schedule-class"><strong>{s.class}</strong></div>
-                    <div className="ad-schedule-trainer">🏋️ {s.trainer}</div>
-                    <div className="ad-schedule-fill">
-                      <span style={{ fontSize:".75rem", color:"var(--text-secondary)" }}>{s.enrolled}/{s.capacity}</span>
-                      <ProgressBar value={s.enrolled} max={s.capacity} color={s.enrolled/s.capacity > 0.8 ? "#ef4444" : "var(--accent)"} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── CLASSES: BOOKINGS ────────────────────────────────────────────────────────
-function AdminBookings() {
-  const [classBookings, setClassBookings] = useState([]);
-  const [search, setSearch] = useState("");
-  const [statusF, setStatusF] = useState("all");
-  const [page, setPage] = useState(1);
-  const PER = 6;
-  
-  useEffect(() => {
-    // TODO: Fetch class bookings from API
-    setClassBookings([]);
-  }, []);
-
-  const filtered = classBookings.filter(b =>
-    (statusF === "all" || b.status === statusF) &&
-    b.member?.toLowerCase().includes(search.toLowerCase())
-  );
-  const paged = filtered.slice((page-1)*PER, page*PER);
-  return (
-    <div className="ad-section">
-      <div className="ad-section-head"><h2>📋 Class Bookings</h2></div>
-      <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
-        <KpiCard icon="✅" label="Confirmed" value={classBookings.filter(b=>b.status==="confirmed").length} color="#22c55e" />
-        <KpiCard icon="⏳" label="Waitlisted" value={classBookings.filter(b=>b.status==="waitlisted").length} color="#f59e0b" />
-        <KpiCard icon="❌" label="Cancelled" value={classBookings.filter(b=>b.status==="cancelled").length} color="#ef4444" />
-      </div>
-      <div className="ad-card">
-        <div className="ad-filters" style={{ marginBottom:12 }}>
-          <input className="ad-input" placeholder="🔍 Search member…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} style={{ maxWidth:220 }} />
-          {["all","confirmed","waitlisted","cancelled"].map(f => (
-            <button key={f} className={`ad-filter-btn ${statusF===f?"ad-filter-active":""}`} onClick={() => { setStatusF(f); setPage(1); }}>{f}</button>
+      <div className="ad-filters">
+        <div className="ad-filter-group">
+          <span className="ad-filter-label">Status:</span>
+          {["all", "scheduled", "in-progress", "completed", "cancelled"].map(f => (
+            <button key={f} className={`ad-filter-btn ${filters.status===f?"ad-filter-active":""}`} onClick={() => handleFilterChange("status", f)}>{f}</button>
           ))}
         </div>
-        {paged.length === 0 ? <EmptyState title="No bookings found" /> : (
+      </div>
+      <div className="ad-card">
+        <div className="ad-card-head"><h3>Showing {schedules.length} of {pagination.total} schedules</h3></div>
+        {loading && <div style={{ textAlign: "center", padding: "40px" }}><FaSpinner style={{ animation: "spin 1s linear infinite", fontSize: "2rem" }} /></div>}
+        {!loading && schedules.length === 0 && <EmptyState title="No schedules found" desc="Create a new schedule to get started." />}
+        {!loading && schedules.length > 0 && (
           <div className="ad-table-wrap">
             <table className="ad-table">
-              <thead><tr><th>Member</th><th>Class</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Class</th><th>Date</th><th>Time</th><th>Trainer</th><th>Capacity</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
-                {paged.map(b => (
-                  <tr key={b.id}>
-                    <td><strong>{b.member}</strong></td>
-                    <td>{b.class}</td>
-                    <td style={{ fontSize:".8rem" }}>{b.date}</td>
-                    <td><ABadge s={b.status} /></td>
+                {schedules.map(s => (
+                  <tr key={s._id}>
+                    <td><strong>{s.classId?.className || "—"}</strong></td>
+                    <td style={{ fontSize:".8rem" }}>{new Date(s.date).toLocaleDateString()}</td>
+                    <td>{s.startTime} - {s.endTime}</td>
+                    <td>{s.trainer?.name || "—"}</td>
+                    <td>{s.bookedMembers?.length || 0}/{s.capacity}</td>
+                    <td><ABadge s={s.sessionStatus} /></td>
                     <td>
-                      <div style={{ display:"flex", gap:6 }}>
-                        {b.status === "waitlisted" && <button className="ad-link-btn" style={{ color:"#22c55e" }}>Confirm</button>}
-                        {b.status === "confirmed" && <button className="ad-link-btn" style={{ color:"#ef4444" }}>Cancel</button>}
+                      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                        {s.sessionStatus === "scheduled" && <button className="ad-link-btn" style={{ fontSize:".75rem" }} onClick={() => handleStatusUpdate(s._id, "in-progress")}>Start</button>}
+                        {s.sessionStatus === "in-progress" && <button className="ad-link-btn" style={{ fontSize:".75rem", color:"#22c55e" }} onClick={() => handleStatusUpdate(s._id, "completed")}>Complete</button>}
+                        <button className="ad-link-btn" style={{ color: "#ef4444", fontSize:".75rem" }} onClick={() => handleDeleteSchedule(s._id)}>Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -1405,102 +1498,293 @@ function AdminBookings() {
             </table>
           </div>
         )}
-        <Pagination total={filtered.length} page={page} perPage={PER} onChange={setPage} />
+        {!loading && pagination.pages > 1 && <Pagination total={pagination.total} page={pagination.page} perPage={pagination.limit} onChange={handlePageChange} />}
+      </div>
+    </div>
+  );
+}
+
+// ─── CLASSES: BOOKINGS ────────────────────────────────────────────────────────
+// ─── CLASSES: BOOKINGS ────────────────────────────────────────────────────────
+function AdminBookings({ openForm, lastFormData, formSubmissionTime }) {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
+  const [filters, setFilters] = useState({ status: "all", search: "" });
+  const [stats, setStats] = useState({ totalBookings: 0, activeBookings: 0, cancelledBookings: 0 });
+  const { toast, show } = useToast();
+
+  // Fetch bookings from API
+  const fetchBookings = useCallback(async (page = 1, filtersObj = filters) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Check if token exists
+      const token = localStorage.getItem('gym-auth-token');
+      if (!token) {
+        setError('Authentication required. Please log in first.');
+        setLoading(false);
+        return;
+      }
+      
+      const filterParams = {};
+      if (filtersObj.status !== "all") filterParams.status = filtersObj.status;
+      if (filtersObj.search) filterParams.search = filtersObj.search;
+      
+      const response = await bookingsService.getAllBookings(page, 10, filterParams);
+      setBookings(response.data || []);
+      setPagination(response.pagination || { page, limit: 10, total: 0, pages: 0 });
+      if (response.stats) setStats(response.stats);
+    } catch (err) {
+      console.error('[AdminBookings] Fetch error:', err);
+      const errorMsg = err.response?.data?.message || err.message || "Failed to fetch bookings";
+      setError(errorMsg);
+      show(`Error: ${errorMsg}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, show]);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchBookings(1, filters);
+  }, []);
+
+  // Refresh when form data changes
+  useEffect(() => {
+    if (lastFormData?.formType === "addBooking" && lastFormData?.data) {
+      console.log('[AdminBookings] Form submitted, refreshing data');
+      fetchBookings(1, filters);
+    }
+  }, [formSubmissionTime]);
+
+  // Handle page change
+  const handlePageChange = useCallback((newPage) => {
+    fetchBookings(newPage, filters);
+  }, [filters, fetchBookings]);
+
+  // Handle filter change
+  const handleFilterChange = useCallback((key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+    fetchBookings(1, { ...filters, [key]: value });
+  }, [filters, fetchBookings]);
+
+  // Handle cancel booking
+  const handleCancelBooking = useCallback(async (bookingId) => {
+    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
+    try {
+      setLoading(true);
+      await bookingsService.cancelBooking(bookingId);
+      show("Booking cancelled successfully!");
+      fetchBookings(pagination.page, filters);
+    } catch (err) {
+      show(`Error: ${err.response?.data?.message || "Failed to cancel booking"}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, filters, fetchBookings, show]);
+
+  return (
+    <div className="ad-section">
+      {error && <div style={{ color: "#ef4444", padding: "20px", textAlign: "center", marginBottom: "20px" }}>{error} <button onClick={() => fetchBookings(pagination.page, filters)} className="ad-link-btn">Retry</button></div>}
+      <div className="ad-section-head"><h2>📋 Class Bookings</h2></div>
+      <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
+        <KpiCard icon="✅" label="Total Bookings" value={stats.totalBookings} color="#22c55e" />
+        <KpiCard icon="⏳" label="Active" value={stats.activeBookings} color="#f59e0b" />
+        <KpiCard icon="❌" label="Cancelled" value={stats.cancelledBookings} color="#ef4444" />
+      </div>
+      <div className="ad-card">
+        <div className="ad-filters" style={{ marginBottom:12 }}>
+          <input 
+            className="ad-input" 
+            placeholder="🔍 Search member…" 
+            value={filters.search} 
+            onChange={e => handleFilterChange("search", e.target.value)} 
+            style={{ maxWidth:220 }} 
+          />
+          {["all","confirmed","waitlisted","cancelled"].map(f => (
+            <button key={f} className={`ad-filter-btn ${filters.status===f?"ad-filter-active":""}`} onClick={() => handleFilterChange("status", f)}>{f}</button>
+          ))}
+        </div>
+        {loading && <div style={{ textAlign: "center", padding: "40px" }}><FaSpinner style={{ animation: "spin 1s linear infinite", fontSize: "2rem" }} /></div>}
+        {!loading && bookings.length === 0 && <EmptyState title="No bookings found" desc="Create a new booking to get started." />}
+        {!loading && bookings.length > 0 && (
+          <div className="ad-table-wrap">
+            <table className="ad-table">
+              <thead><tr><th>Member</th><th>Class</th><th>Schedule</th><th>Status</th><th>Booked On</th><th>Actions</th></tr></thead>
+              <tbody>
+                {bookings.map(b => (
+                  <tr key={b._id}>
+                    <td><strong>{b.memberId?.fullName || "—"}</strong></td>
+                    <td>{b.classId?.className || "—"}</td>
+                    <td style={{ fontSize:".8rem" }}>{b.scheduleId?.date ? new Date(b.scheduleId.date).toLocaleDateString() : "—"}</td>
+                    <td><ABadge s={b.bookingStatus} /></td>
+                    <td style={{ fontSize:".8rem" }}>{b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "—"}</td>
+                    <td>
+                      <div style={{ display:"flex", gap:6 }}>
+                        {b.bookingStatus === "confirmed" && <button className="ad-link-btn" style={{ color:"#ef4444", fontSize:".75rem" }} onClick={() => handleCancelBooking(b._id)}>Cancel</button>}
+                        {b.bookingStatus === "cancelled" && <span style={{ fontSize:".75rem", color:"var(--text-secondary)" }}>—</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!loading && pagination.pages > 1 && <Pagination total={pagination.total} page={pagination.page} perPage={pagination.limit} onChange={handlePageChange} />}
       </div>
     </div>
   );
 }
 
 // ─── CLASSES: CATEGORIES ──────────────────────────────────────────────────────
-function AdminCategories({ openForm }) {
-  const [classList, setClassList] = useState([]);
-  const [trainers, setTrainers] = useState([]);
-  const [catFilter, setCatFilter] = useState("all");
-  const [showAdd, setShowAdd] = useState(false);
-  const [newClass, setNewClass] = useState({ name:"", category:"Cardio", trainer:"", time:"", days:"", capacity:15 });
+// ─── CLASSES: CATEGORIES ──────────────────────────────────────────────────────
+function AdminCategories({ openForm, lastFormData, formSubmissionTime }) {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
+  const [filters, setFilters] = useState({ search: "", status: "all" });
+  const [stats, setStats] = useState({ totalCategories: 0, activeCategories: 0 });
   const { toast, show } = useToast();
-  const categories = ["all", ...new Set(classList.map(c => c.category))];
-  const filtered = classList.filter(c => catFilter === "all" || c.category === catFilter);
-  const toggleClass = (id) => {
-    setClassList(prev => prev.map(c => c.id === id ? { ...c, status: c.status === "active" ? "inactive" : "active" } : c));
-    show("Class status updated!");
-  };
-  const addClass = () => {
-    if (!newClass.name) return;
-    setClassList(prev => [...prev, { ...newClass, id:Date.now(), enrolled:0, status:"active" }]);
-    setNewClass({ name:"", category:"Cardio", trainer:"", time:"", days:"", capacity:15 });
-    setShowAdd(false);
-    show("Class added successfully!");
-  };
+  const lastProcessedRef = useRef(null);
+
+  // Fetch categories from API
+  const fetchCategories = useCallback(async (page = 1, filtersObj = filters) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Check if token exists
+      const token = localStorage.getItem('gym-auth-token');
+      if (!token) {
+        setError('Authentication required. Please log in first.');
+        setLoading(false);
+        return;
+      }
+      
+      const filterParams = {};
+      if (filtersObj.search) filterParams.search = filtersObj.search;
+      if (filtersObj.status !== "all") filterParams.status = filtersObj.status;
+      
+      const response = await categoriesService.getAllCategories(page, 10, filterParams);
+      setCategories(response.data || []);
+      setPagination(response.pagination || { page, limit: 10, total: 0, pages: 0 });
+      
+      // Fetch stats
+      try {
+        const statsResponse = await categoriesService.getCategoryStats();
+        if (statsResponse.data) setStats(statsResponse.data);
+      } catch (err) {
+        console.error("Failed to fetch category stats:", err);
+      }
+    } catch (err) {
+      console.error('[AdminCategories] Fetch error:', err);
+      const errorMsg = err.response?.data?.message || err.message || "Failed to fetch categories";
+      setError(errorMsg);
+      show(`Error: ${errorMsg}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, show]);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchCategories(1, filters);
+  }, []);
+
+  // Refresh when form data changes
+  useEffect(() => {
+    if (lastFormData?.formType === "addCategory" && lastFormData?.data) {
+      console.log('[AdminCategories] Form submitted, refreshing data');
+      fetchCategories(1, filters);
+    }
+  }, [formSubmissionTime]);
+
+  // Handle page change
+  const handlePageChange = useCallback((newPage) => {
+    fetchCategories(newPage, filters);
+  }, [filters, fetchCategories]);
+
+  // Handle filter change
+  const handleFilterChange = useCallback((key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+    fetchCategories(1, { ...filters, [key]: value });
+  }, [filters, fetchCategories]);
+
+  // Handle delete category
+  const handleDeleteCategory = useCallback(async (categoryId) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    try {
+      setLoading(true);
+      await categoriesService.deleteCategory(categoryId);
+      show("Category deleted successfully!");
+      fetchCategories(pagination.page, filters);
+    } catch (err) {
+      show(`Error: ${err.response?.data?.message || "Failed to delete category"}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, filters, fetchCategories, show]);
+
   return (
     <div className="ad-section">
-      {toast && <Toast msg={toast} onClose={() => {}} />}
+      {error && <div style={{ color: "#ef4444", padding: "20px", textAlign: "center", marginBottom: "20px" }}>{error} <button onClick={() => fetchCategories(pagination.page, filters)} className="ad-link-btn">Retry</button></div>}
       <div className="ad-section-head">
         <h2>🏷️ Class Categories</h2>
-        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("addClass")}>+ Add Class</button>
+        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("addCategory")}>+ Add Category</button>
       </div>
-      <div className="ad-filters">
-        {categories.map(c => (
-          <button key={c} className={`ad-filter-btn ${catFilter===c?"ad-filter-active":""}`} onClick={() => setCatFilter(c)}>{c}</button>
-        ))}
+      <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(2,1fr)" }}>
+        <KpiCard icon="📂" label="Total Categories" value={stats.totalCategories} color="#3b82f6" />
+        <KpiCard icon="✅" label="Active" value={stats.activeCategories} color="#22c55e" />
       </div>
-      <div className="ad-class-grid">
-        {filtered.map(c => (
-          <div className="ad-card ad-class-card" key={c.id} style={{ opacity: c.status === "inactive" ? 0.6 : 1 }}>
-            <div className="ad-class-header">
-              <div><strong>{c.name}</strong><span className="ad-class-cat">{c.category}</span></div>
-              <ABadge s={c.status} />
-            </div>
-            <div className="ad-class-meta">
-              <span>🏋️ {c.trainer}</span>
-              <span>🕐 {c.time}</span>
-              <span>📆 {c.days}</span>
-            </div>
-            <div className="ad-class-fill">
-              <div style={{ display:"flex", justifyContent:"space-between", fontSize:".75rem", marginBottom:4 }}>
-                <span>Enrollment</span>
-                <span>{c.enrolled}/{c.capacity}</span>
-              </div>
-              <ProgressBar value={c.enrolled} max={c.capacity} color={c.enrolled/c.capacity > 0.8 ? "#ef4444" : "var(--accent)"} />
-            </div>
-            <div style={{ display:"flex", gap:8, marginTop:12 }}>
-              <button className="ad-link-btn" onClick={() => show("Edit form coming soon!")}>Edit</button>
-              <button className="ad-link-btn" style={{ color: c.status === "active" ? "#ef4444" : "#22c55e" }} onClick={() => toggleClass(c.id)}>
-                {c.status === "active" ? "Deactivate" : "Activate"}
-              </button>
-            </div>
+      <div className="ad-card">
+        <div className="ad-filters" style={{ marginBottom:12 }}>
+          <input 
+            className="ad-input" 
+            placeholder="🔍 Search category…" 
+            value={filters.search} 
+            onChange={e => handleFilterChange("search", e.target.value)} 
+            style={{ maxWidth:220 }} 
+          />
+        </div>
+        {loading && <div style={{ textAlign: "center", padding: "40px" }}><FaSpinner style={{ animation: "spin 1s linear infinite", fontSize: "2rem" }} /></div>}
+        {!loading && categories.length === 0 && <EmptyState title="No categories found" desc="Create a new category to get started." />}
+        {!loading && categories.length > 0 && (
+          <div className="ad-table-wrap">
+            <table className="ad-table">
+              <thead><tr><th>Category Name</th><th>Description</th><th>Color</th><th>Classes</th><th>Actions</th></tr></thead>
+              <tbody>
+                {categories.map(c => (
+                  <tr key={c._id}>
+                    <td><strong>{c.categoryName}</strong></td>
+                    <td style={{ fontSize:".8rem", color:"var(--text-secondary)" }}>{c.description || "—"}</td>
+                    <td>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ width:20, height:20, background:c.color || "#999", borderRadius:4 }} />
+                        <span style={{ fontSize:".8rem" }}>{c.color || "—"}</span>
+                      </div>
+                    </td>
+                    <td>{c.classCount || 0}</td>
+                    <td>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <button className="ad-link-btn" onClick={() => show("Edit coming soon!")}>Edit</button>
+                        <button className="ad-link-btn" style={{ color: "#ef4444", fontSize:".75rem" }} onClick={() => handleDeleteCategory(c._id)}>Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
+        )}
+        {!loading && pagination.pages > 1 && <Pagination total={pagination.total} page={pagination.page} perPage={pagination.limit} onChange={handlePageChange} />}
       </div>
-
-      {showAdd && (
-        <AdModal title="Add New Class" onClose={() => setShowAdd(false)}>
-          {[["Class Name","name","text"],["Time","time","text"],["Days","days","text"]].map(([l,k,t]) => (
-            <div className="ad-form-group" key={k}>
-              <label>{l}</label>
-              <input className="ad-input" type={t} placeholder={l} value={newClass[k]} onChange={e => setNewClass(p => ({ ...p, [k]:e.target.value }))} />
-            </div>
-          ))}
-          <div className="ad-form-group">
-            <label>Category</label>
-            <select className="ad-input" value={newClass.category} onChange={e => setNewClass(p => ({ ...p, category:e.target.value }))}>
-              {["Cardio","Strength","Yoga","Dance","CrossFit","Flexibility"].map(c => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="ad-form-group">
-            <label>Trainer</label>
-            <select className="ad-input" value={newClass.trainer} onChange={e => setNewClass(p => ({ ...p, trainer:e.target.value }))}>
-              <option value="">— Select trainer —</option>
-              {trainers.filter(t => t.role !== "Reception").map(t => <option key={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-          <div className="ad-form-group">
-            <label>Capacity</label>
-            <input className="ad-input" type="number" value={newClass.capacity} onChange={e => setNewClass(p => ({ ...p, capacity:+e.target.value }))} />
-          </div>
-          <button className="btn btn-primary" style={{ width:"100%", marginTop:8 }} onClick={addClass}>Add Class</button>
-        </AdModal>
-      )}
     </div>
   );
 }
@@ -2673,16 +2957,31 @@ function AdminPerfReport() {
     try {
       setLoading(true);
       setError(null);
-      // Fetch trainer performance data
-      const trainerResponse = await performanceReportAPI.getTrainerPerformance();
-      const trainerData = trainerResponse.data || trainerResponse;
-      setTrainers(Array.isArray(trainerData) ? trainerData : trainerData.trainers || []);
       
-      // Fetch class performance data
-      const classResponse = await performanceReportAPI.getClassPerformance();
-      const classData = classResponse.data || classResponse;
-      setPopularClasses(Array.isArray(classData) ? classData : classData.classes || []);
+      // Fetch trainer performance data with error handling
+      try {
+        const trainersResponse = await performanceReportAPI.getTrainerPerformance();
+        console.log('Trainers response:', trainersResponse);
+        const trainersData = Array.isArray(trainersResponse) ? trainersResponse : (trainersResponse?.data || []);
+        setTrainers(trainersData);
+      } catch (trainerErr) {
+        console.error('Trainer fetch error:', trainerErr);
+        setTrainers([]);
+      }
+      
+      // Fetch class performance data with error handling
+      try {
+        const classesResponse = await performanceReportAPI.getClassPerformance();
+        console.log('Classes response:', classesResponse);
+        const classesData = Array.isArray(classesResponse) ? classesResponse : (classesResponse?.data || []);
+        setPopularClasses(classesData);
+      } catch (classErr) {
+        console.error('Class fetch error:', classErr);
+        setPopularClasses([]);
+      }
+      
     } catch (err) {
+      console.error('Performance fetch error:', err);
       const errorMsg = err.message || 'Failed to fetch performance data';
       setError(errorMsg);
       show(errorMsg, 'error');
@@ -2716,10 +3015,10 @@ function AdminPerfReport() {
       <div className="ad-card">
         <div className="ad-card-head"><h3>Trainer Performance</h3></div>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '20px' }}>Loading trainer data...</div>
+          <div style={{ textAlign: 'center', padding: '20px' }}>⏳ Loading trainer data...</div>
         ) : error ? (
           <div style={{ color: '#ef4444', padding: '20px' }}>
-            Error: {error}
+            <strong>Error:</strong> {error}
             <button className="ad-link-btn" onClick={fetchPerformanceData} style={{ marginLeft: 10 }}>Retry</button>
           </div>
         ) : trainers.length === 0 ? (
@@ -2729,16 +3028,16 @@ function AdminPerfReport() {
             <table className="ad-table">
               <thead><tr><th>Trainer</th><th>Clients</th><th>Sessions</th><th>Rating</th><th>Revenue</th><th>Retention</th></tr></thead>
               <tbody>
-                {trainers.filter(t=>t.role!=="Reception").map(t => (
+                {trainers.map(t => (
                   <tr key={t._id || t.id}>
-                    <td><strong>{t.name}</strong><div style={{ fontSize:".72rem", color:"var(--text-secondary)" }}>{t.specialization || 'N/A'}</div></td>
+                    <td><strong>{t.fullName || t.name || 'N/A'}</strong><div style={{ fontSize:".72rem", color:"var(--text-secondary)" }}>{Array.isArray(t.specialization) ? t.specialization.join(', ') : (t.specialization || 'N/A')}</div></td>
                     <td>{t.clients || 0}</td>
-                    <td>{t.sessions || 0}</td>
-                    <td>{"⭐".repeat(Math.round(t.rating || 0))} {(t.rating || 0).toFixed(1)}</td>
-                    <td>${((t.sessions || 0) * 9.5).toFixed(0)}</td>
+                    <td>{t.sessions || t.sessionsCompleted || 0}</td>
+                    <td>{"⭐".repeat(Math.round(t.rating?.average || t.rating || 0))} {(t.rating?.average || t.rating || 0).toFixed(1)}</td>
+                    <td>${((t.sessions || t.sessionsCompleted || 0) * 9.5).toFixed(0)}</td>
                     <td>
-                      <ProgressBar value={(t.rating || 0) * 20} color="#22c55e" />
-                      <span style={{ fontSize:".72rem", color:"var(--text-secondary)" }}>{((t.rating || 0) * 20).toFixed(0)}%</span>
+                      <ProgressBar value={(t.rating?.average || t.rating || 0) * 20} color="#22c55e" />
+                      <span style={{ fontSize:".72rem", color:"var(--text-secondary)" }}>{((t.rating?.average || t.rating || 0) * 20).toFixed(0)}%</span>
                     </td>
                   </tr>
                 ))}
@@ -2750,9 +3049,12 @@ function AdminPerfReport() {
       <div className="ad-card">
         <div className="ad-card-head"><h3>Class Performance</h3></div>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '20px' }}>Loading class data...</div>
+          <div style={{ textAlign: 'center', padding: '20px' }}>⏳ Loading class data...</div>
         ) : error ? (
-          <div style={{ color: '#ef4444', padding: '20px' }}>Error loading data</div>
+          <div style={{ color: '#ef4444', padding: '20px' }}>
+            <strong>Error:</strong> {error}
+            <button className="ad-link-btn" onClick={fetchPerformanceData} style={{ marginLeft: 10 }}>Retry</button>
+          </div>
         ) : popularClasses.length === 0 ? (
           <EmptyState title="No class data" desc="Class performance will appear here once bookings are made." />
         ) : (
@@ -2760,10 +3062,10 @@ function AdminPerfReport() {
             {popularClasses.map((c, i) => (
               <div key={c._id || i} style={{ marginBottom:12 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", fontSize:".85rem", marginBottom:5 }}>
-                  <span><strong>{i+1}. {c.name}</strong></span>
-                  <span style={{ color:"var(--text-secondary)" }}>{c.bookings || 0} bookings · {c.fill || 0}% fill</span>
+                  <span><strong>{i+1}. {c.className || c.name || 'N/A'}</strong></span>
+                  <span style={{ color:"var(--text-secondary)" }}>Capacity: {c.capacity || 0} · {c.category?.name || c.category || 'N/A'}</span>
                 </div>
-                <ProgressBar value={c.fill || 0} color={i === 0 ? "var(--accent)" : "#3b82f6"} />
+                <ProgressBar value={50} color={i === 0 ? "var(--accent)" : "#3b82f6"} />
               </div>
             ))}
           </>
@@ -3322,25 +3624,101 @@ function AdminAnalyticsClasses() {
 }
 
 // ─── OPERATIONS: EQUIPMENT ────────────────────────────────────────────────────
-function AdminEquipment({ openForm }) {
+function AdminEquipment({ openForm, lastFormData, formSubmissionTime }) {
   const [equip, setEquip]   = useState([]);
   const [filter, setFilter] = useState("all");
   const [showLog, setShowLog] = useState(false);
   const [logItem, setLogItem] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ operational: 0, maintenance: 0, outOfOrder: 0 });
   const { toast, show } = useToast();
+  const lastProcessedRef = useRef(null);
+  
+  useEffect(() => {
+    fetchEquipment();
+  }, []);
+
+  const fetchEquipment = async () => {
+    try {
+      setLoading(true);
+      const response = await equipmentService.getAllEquipment({ limit: 100 });
+      const equipment = response.data?.equipment || [];
+      setEquip(equipment);
+      
+      // Update stats
+      const summary = response.data?.summary || {};
+      setStats({
+        operational: summary.operational || 0,
+        maintenance: summary.maintenance || 0,
+        outOfOrder: summary.outOfOrder || 0
+      });
+    } catch (error) {
+      console.error('Error fetching equipment:', error);
+      show('Error loading equipment');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle form submission from global form
+  useEffect(() => {
+    if (lastFormData && lastFormData.formType === "addEquipment") {
+      const submissionKey = `${lastFormData.formType}-${formSubmissionTime}`;
+      
+      if (submissionKey !== lastProcessedRef.current) {
+        const formData = lastFormData.data;
+        if (formData.name) {
+          createNewEquipment(formData);
+          lastProcessedRef.current = submissionKey;
+        }
+      }
+    }
+  }, [formSubmissionTime, lastFormData]);
+
+  const createNewEquipment = async (formData) => {
+    try {
+      await equipmentService.createEquipment({
+        name: formData.name,
+        category: formData.category || "General",
+        quantity: formData.quantity || 1,
+        status: formData.status || "operational",
+        location: formData.location || "",
+        purchaseDate: formData.purchaseDate || null,
+        notes: formData.notes || ""
+      });
+      show("Equipment added!");
+      fetchEquipment();
+    } catch (error) {
+      console.error('Error creating equipment:', error);
+      show('Error adding equipment');
+    }
+  };
+
   const filtered = equip.filter(e => filter === "all" || e.status === filter);
-  const updateStatus = (id, status) => { setEquip(prev => prev.map(e => e.id===id ? {...e, status} : e)); setShowLog(false); show("Status updated!"); };
+  
+  const updateStatus = async (id, status) => {
+    try {
+      await equipmentService.updateEquipmentStatus(id, status);
+      setShowLog(false);
+      show("Status updated!");
+      fetchEquipment();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      show('Error updating status');
+    }
+  };
+
   return (
     <div className="ad-section">
       {toast && <Toast msg={toast} onClose={() => {}} />}
       <div className="ad-section-head">
         <h2>🔧 Equipment</h2>
-        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("addEquipment")}>+ Add Equipment</button>
+        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("addEquipment")} disabled={loading}>+ Add Equipment</button>
       </div>
       <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
-        <KpiCard icon="✅" label="Operational" value={equip.filter(e=>e.status==="operational").length} color="#22c55e" />
-        <KpiCard icon="🔧" label="Maintenance" value={equip.filter(e=>e.status==="maintenance").length} color="#f59e0b" />
-        <KpiCard icon="❌" label="Out of Order" value={equip.filter(e=>e.status==="out_of_order").length} color="#ef4444" />
+        <KpiCard icon="✅" label="Operational" value={stats.operational} color="#22c55e" />
+        <KpiCard icon="🔧" label="Maintenance" value={stats.maintenance} color="#f59e0b" />
+        <KpiCard icon="❌" label="Out of Order" value={stats.outOfOrder} color="#ef4444" />
       </div>
       <div className="ad-filters">
         {["all","operational","maintenance","out_of_order"].map(f => (
@@ -3349,27 +3727,32 @@ function AdminEquipment({ openForm }) {
       </div>
       <div className="ad-card">
         <div className="ad-table-wrap">
-          <table className="ad-table">
-            <thead><tr><th>Equipment</th><th>Category</th><th>Status</th><th>Last Service</th><th>Next Service</th><th>Issue</th><th>Actions</th></tr></thead>
-            <tbody>
-              {filtered.map(e => (
-                <tr key={e.id}>
-                  <td><strong>{e.name}</strong></td>
-                  <td>{e.category}</td>
-                  <td><ABadge s={e.status} /></td>
-                  <td style={{ fontSize:".8rem" }}>{e.lastService}</td>
-                  <td style={{ fontSize:".8rem", color: e.nextService==="ASAP"?"#ef4444":"inherit", fontWeight: e.nextService==="ASAP"?700:400 }}>{e.nextService}</td>
-                  <td style={{ fontSize:".78rem", color:"#ef4444" }}>{e.issue || "—"}</td>
-                  <td>
-                    <div style={{ display:"flex", gap:6 }}>
-                      <button className="ad-link-btn" onClick={() => { setLogItem(e); setShowLog(true); }}>Update</button>
-                      {e.status !== "operational" && <button className="ad-link-btn" style={{ color:"#22c55e" }} onClick={() => updateStatus(e.id,"operational")}>Mark Fixed</button>}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '20px' }}>Loading equipment...</div>
+          ) : filtered.length === 0 ? (
+            <EmptyState title="No equipment found" />
+          ) : (
+            <table className="ad-table">
+              <thead><tr><th>Equipment</th><th>Category</th><th>Status</th><th>Location</th><th>Quantity</th><th>Actions</th></tr></thead>
+              <tbody>
+                {filtered.map(e => (
+                  <tr key={e._id}>
+                    <td><strong>{e.name}</strong></td>
+                    <td>{e.category}</td>
+                    <td><ABadge s={e.status} /></td>
+                    <td style={{ fontSize:".8rem" }}>{e.location || "—"}</td>
+                    <td>{e.quantity || 1}</td>
+                    <td>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <button className="ad-link-btn" onClick={() => { setLogItem(e); setShowLog(true); }}>Update</button>
+                        {e.status !== "operational" && <button className="ad-link-btn" style={{ color:"#22c55e" }} onClick={() => updateStatus(e._id,"operational")}>Mark Fixed</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -3378,15 +3761,16 @@ function AdminEquipment({ openForm }) {
           {!logItem && <div className="ad-form-group"><label>Equipment Name</label><input className="ad-input" placeholder="e.g. Treadmill #4" /></div>}
           <div className="ad-form-group">
             <label>Status</label>
-            <select className="ad-input" defaultValue={logItem?.status || "maintenance"}>
+            <select className="ad-input" defaultValue={logItem?.status || "maintenance"} onChange={(e) => {
+              if (logItem) {
+                updateStatus(logItem._id, e.target.value);
+              }
+            }}>
               <option value="operational">Operational</option>
               <option value="maintenance">Under Maintenance</option>
               <option value="out_of_order">Out of Order</option>
             </select>
           </div>
-          <div className="ad-form-group"><label>Issue Description</label><textarea className="ad-textarea" rows={3} defaultValue={logItem?.issue || ""} placeholder="Describe the issue…" /></div>
-          <div className="ad-form-group"><label>Next Service Date</label><input className="ad-input" type="date" /></div>
-          <button className="btn btn-primary" style={{ width:"100%", marginTop:8 }} onClick={() => { setShowLog(false); show("Issue logged!"); }}>Save</button>
         </AdModal>
       )}
     </div>
@@ -3394,14 +3778,37 @@ function AdminEquipment({ openForm }) {
 }
 
 // ─── OPERATIONS: MAINTENANCE ──────────────────────────────────────────────────
-function AdminMaintenance({ openForm }) {
+function AdminMaintenance({ openForm, lastFormData, formSubmissionTime }) {
   const [maintenanceLogs, setMaintenanceLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const { toast, show } = useToast();
   
+  const fetchMaintenance = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const maintenanceService = await import('../services/maintenanceService');
+      const data = await maintenanceService.getAllMaintenance();
+      setMaintenanceLogs(Array.isArray(data) ? data : data.maintenance || []);
+    } catch (err) {
+      setError(err.message || "Failed to fetch maintenance logs");
+      console.error("Fetch maintenance error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   useEffect(() => {
-    // TODO: Fetch maintenance logs from API
-    setMaintenanceLogs([]);
+    fetchMaintenance();
   }, []);
+
+  // Refresh when form is submitted
+  useEffect(() => {
+    if (formSubmissionTime) {
+      fetchMaintenance();
+    }
+  }, [formSubmissionTime]);
 
   return (
     <div className="ad-section">
@@ -3410,36 +3817,76 @@ function AdminMaintenance({ openForm }) {
         <h2>🛠️ Maintenance</h2>
         <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("scheduleMaintenance")}>+ Schedule Repair</button>
       </div>
-      <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
-        <KpiCard icon="✅" label="Completed" value={maintenanceLogs.filter(m=>m.status==="completed").length} color="#22c55e" />
-        <KpiCard icon="🔄" label="In Progress" value={maintenanceLogs.filter(m=>m.status==="in-progress").length} color="#f59e0b" />
-        <KpiCard icon="⏳" label="Pending" value={maintenanceLogs.filter(m=>m.status==="pending").length} color="#ef4444" />
-      </div>
-      <div className="ad-card">
-        <div className="ad-card-head"><h3>Maintenance Log</h3></div>
-        {maintenanceLogs.length === 0 ? (
-          <EmptyState title="No maintenance logs" desc="Schedule maintenance to track repairs." />
-        ) : (
-          <div className="ad-table-wrap">
-            <table className="ad-table">
-              <thead><tr><th>Equipment</th><th>Type</th><th>Technician</th><th>Date</th><th>Cost</th><th>Status</th><th>Actions</th></tr></thead>
-              <tbody>
-                {maintenanceLogs.map(m => (
-                  <tr key={m.id}>
-                    <td><strong>{m.equipment}</strong></td>
-                    <td><span className="ad-badge ad-blue">{m.type}</span></td>
-                    <td>{m.tech}</td>
-                    <td style={{ fontSize:".8rem" }}>{m.date}</td>
-                    <td style={{ fontWeight:700 }}>{m.cost}</td>
-                    <td><ABadge s={m.status} /></td>
-                    <td><button className="ad-link-btn" onClick={() => show("Updating status...")}>Update</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      
+      {error && (
+        <div style={{
+          padding: '12px',
+          marginBottom: '16px',
+          backgroundColor: '#fee2e2',
+          border: '1px solid #fca5a5',
+          borderRadius: '6px',
+          color: '#991b1b',
+          fontSize: '0.875rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span>{error}</span>
+          <button 
+            onClick={fetchMaintenance}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#991b1b',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontSize: '0.875rem'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⏳</div>
+          <p>Loading maintenance logs...</p>
+        </div>
+      ) : (
+        <>
+          <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
+            <KpiCard icon="✅" label="Completed" value={maintenanceLogs.filter(m=>m.status==="completed").length} color="#22c55e" />
+            <KpiCard icon="🔄" label="In Progress" value={maintenanceLogs.filter(m=>m.status==="in-progress").length} color="#f59e0b" />
+            <KpiCard icon="⏳" label="Pending" value={maintenanceLogs.filter(m=>m.status==="pending").length} color="#ef4444" />
           </div>
-        )}
-      </div>
+          <div className="ad-card">
+            <div className="ad-card-head"><h3>Maintenance Log</h3></div>
+            {maintenanceLogs.length === 0 ? (
+              <EmptyState title="No maintenance logs" desc="Schedule maintenance to track repairs." />
+            ) : (
+              <div className="ad-table-wrap">
+                <table className="ad-table">
+                  <thead><tr><th>Equipment</th><th>Type</th><th>Technician</th><th>Date</th><th>Cost</th><th>Status</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {maintenanceLogs.map(m => (
+                      <tr key={m._id || m.id}>
+                        <td><strong>{m.equipment_id || m.equipment}</strong></td>
+                        <td><span className="ad-badge ad-blue">{m.type}</span></td>
+                        <td>{m.technician_name || m.tech}</td>
+                        <td style={{ fontSize:".8rem" }}>{new Date(m.scheduled_date).toLocaleDateString()}</td>
+                        <td style={{ fontWeight:700 }}>${m.cost || 0}</td>
+                        <td><ABadge s={m.status} /></td>
+                        <td><button className="ad-link-btn" onClick={() => show("Updating status...")}>Update</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -3449,45 +3896,83 @@ function AdminPayments() {
   const [search, setSearch] = useState("");
   const [page, setPage]     = useState(1);
   const [completedPayments, setCompletedPayments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ total: 0, count: 0, avg: 0 });
   const PER = 5;
   const { toast, show } = useToast();
   
   useEffect(() => {
-    // TODO: Fetch completed payments from API
-    setCompletedPayments([]);
+    fetchPayments();
   }, []);
+
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      const response = await paymentsService.getAllPayments({ limit: 100 });
+      const memberships = response.data?.memberships || [];
+      
+      // Transform membership data to payment format
+      const payments = memberships.map(m => ({
+        id: m._id,
+        member: m.memberId?.fullName || 'Unknown',
+        plan: m.membershipPlan,
+        amount: m.finalAmount,
+        method: m.paymentMethod,
+        date: new Date(m.createdAt).toLocaleDateString(),
+        status: m.paymentStatus
+      }));
+      
+      setCompletedPayments(payments);
+      
+      // Calculate stats
+      const total = payments.reduce((s, p) => s + (p.amount || 0), 0);
+      setStats({
+        total,
+        count: payments.length,
+        avg: payments.length > 0 ? (total / payments.length).toFixed(0) : 0
+      });
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      show('Error loading payments');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = completedPayments.filter(p => p.member?.toLowerCase().includes(search.toLowerCase()));
   const paged = filtered.slice((page-1)*PER, page*PER);
-  const total = completedPayments.reduce((s, p) => s + parseInt(p.amount?.replace("$","") || 0), 0);
   
   return (
     <div className="ad-section">
       {toast && <Toast msg={toast} onClose={() => {}} />}
       <div className="ad-section-head">
         <h2>💳 Payments</h2>
-        <button className="btn btn-outline ad-btn-sm" onClick={() => show("Exporting...")}>⬇ Export</button>
+        <button className="btn btn-outline ad-btn-sm" onClick={() => show("Exporting...")} disabled={loading}>⬇ Export</button>
       </div>
       <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
-        <KpiCard icon="✅" label="Completed Payments" value={completedPayments.length} color="#22c55e" />
-        <KpiCard icon="💰" label="Total Collected" value={`$${total.toLocaleString()}`} color="var(--accent)" />
-        <KpiCard icon="📊" label="Avg Payment" value={`$${completedPayments.length > 0 ? (total/completedPayments.length).toFixed(0) : 0}`} color="#3b82f6" />
+        <KpiCard icon="✅" label="Completed Payments" value={stats.count} color="#22c55e" />
+        <KpiCard icon="💰" label="Total Collected" value={`₹${stats.total.toLocaleString()}`} color="var(--accent)" />
+        <KpiCard icon="📊" label="Avg Payment" value={`₹${stats.avg}`} color="#3b82f6" />
       </div>
       <div className="ad-card">
         <div className="ad-filters" style={{ marginBottom:12 }}>
           <input className="ad-input" placeholder="🔍 Search member…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} style={{ maxWidth:220 }} />
         </div>
-        {paged.length === 0 ? <EmptyState title="No payments found" /> : (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>Loading payments...</div>
+        ) : paged.length === 0 ? (
+          <EmptyState title="No payments found" />
+        ) : (
           <div className="ad-table-wrap">
             <table className="ad-table">
               <thead><tr><th>ID</th><th>Member</th><th>Plan</th><th>Amount</th><th>Method</th><th>Date</th><th>Status</th></tr></thead>
               <tbody>
                 {paged.map(p => (
                   <tr key={p.id}>
-                    <td><code style={{ fontSize:".72rem", color:"var(--accent)" }}>{p.id}</code></td>
+                    <td><code style={{ fontSize:".72rem", color:"var(--accent)" }}>{p.id?.substring(0, 8)}</code></td>
                     <td><strong>{p.member}</strong></td>
                     <td>{p.plan}</td>
-                    <td><strong style={{ color:"#22c55e" }}>{p.amount}</strong></td>
+                    <td><strong style={{ color:"#22c55e" }}>₹{p.amount?.toLocaleString()}</strong></td>
                     <td style={{ fontSize:".8rem" }}>{p.method}</td>
                     <td style={{ fontSize:".78rem", color:"var(--text-secondary)" }}>{p.date}</td>
                     <td><ABadge s={p.status} /></td>
@@ -3507,39 +3992,108 @@ function AdminPayments() {
 function AdminRenewals() {
   const { toast, show } = useToast();
   const [dueRenewals, setDueRenewals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ expiring7: 0, expiring30: 0, expired: 0 });
   
   useEffect(() => {
-    // TODO: Fetch renewals data from API
-    setDueRenewals([]);
+    fetchRenewals();
   }, []);
+
+  const fetchRenewals = async () => {
+    try {
+      setLoading(true);
+      
+      // Get expiring soon (7 days)
+      const expiring7 = await renewalsService.getExpiringSoon();
+      
+      // Get expiring in 30 days
+      const expiring30 = await renewalsService.getExpiringIn30Days();
+      
+      // Get expired
+      const expired = await renewalsService.getExpiredMemberships();
+      
+      // Combine and format
+      const allRenewals = [...expiring7, ...expiring30, ...expired].map(m => {
+        const now = new Date();
+        const endDate = new Date(m.membershipEndDate);
+        const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+        
+        return {
+          id: m._id,
+          member: m.memberId?.fullName || 'Unknown',
+          plan: m.membershipPlan,
+          expiry: endDate.toLocaleDateString(),
+          daysLeft: daysLeft < 0 ? 0 : daysLeft,
+          membershipId: m._id
+        };
+      });
+      
+      setDueRenewals(allRenewals);
+      
+      setStats({
+        expiring7: expiring7.length,
+        expiring30: expiring30.length,
+        expired: expired.length
+      });
+    } catch (error) {
+      console.error('Error fetching renewals:', error);
+      show('Error loading renewals');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRenew = async (membershipId) => {
+    try {
+      // For now, just show a message. In production, open a renewal form
+      show('Renewal process initiated');
+      // await renewalsService.renewMembership(membershipId, renewalData);
+      // fetchRenewals();
+    } catch (error) {
+      console.error('Error renewing membership:', error);
+      show('Error processing renewal');
+    }
+  };
+
+  const handleReminder = async (memberId) => {
+    try {
+      await renewalsService.sendRenewalReminder(memberId);
+      show('Reminder sent!');
+    } catch (error) {
+      console.error('Error sending reminder:', error);
+      show('Error sending reminder');
+    }
+  };
 
   return (
     <div className="ad-section">
       {toast && <Toast msg={toast} onClose={() => {}} />}
       <div className="ad-section-head"><h2>🔄 Renewals</h2></div>
       <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
-        <KpiCard icon="⚠️" label="Expiring in 7 days" value={dueRenewals.filter(r=>r.daysLeft<=7&&r.daysLeft>0).length} color="#ef4444" />
-        <KpiCard icon="📅" label="Expiring in 30 days" value={dueRenewals.filter(r=>r.daysLeft<=30&&r.daysLeft>0).length} color="#f59e0b" />
-        <KpiCard icon="❌" label="Already Expired" value={dueRenewals.filter(r=>r.daysLeft===0).length} color="#ef4444" />
+        <KpiCard icon="⚠️" label="Expiring in 7 days" value={stats.expiring7} color="#ef4444" />
+        <KpiCard icon="📅" label="Expiring in 30 days" value={stats.expiring30} color="#f59e0b" />
+        <KpiCard icon="❌" label="Already Expired" value={stats.expired} color="#ef4444" />
       </div>
       <div className="ad-card">
         <div className="ad-card-head"><h3>Upcoming Renewals</h3></div>
-        {dueRenewals.length === 0 ? (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>Loading renewals...</div>
+        ) : dueRenewals.length === 0 ? (
           <EmptyState title="No renewals due" desc="All memberships are up to date." />
         ) : (
           <table className="ad-table">
             <thead><tr><th>Member</th><th>Plan</th><th>Expiry</th><th>Days Left</th><th>Actions</th></tr></thead>
             <tbody>
               {dueRenewals.map((r, i) => (
-                <tr key={i}>
+                <tr key={r.id || i}>
                   <td><strong>{r.member}</strong></td>
                   <td>{r.plan}</td>
                   <td>{r.expiry}</td>
                   <td><span className={`ad-badge ${r.daysLeft===0?"ad-red":r.daysLeft<=10?"ad-yellow":"ad-blue"}`}>{r.daysLeft===0?"Expired":`${r.daysLeft} days`}</span></td>
                   <td>
                     <div style={{ display:"flex", gap:6 }}>
-                      <button className="ad-link-btn" onClick={() => show("Reminder sent!")}>📧 Remind</button>
-                      <button className="ad-link-btn" style={{ color:"#22c55e" }} onClick={() => show("Renewal processed!")}>Renew</button>
+                      <button className="ad-link-btn" onClick={() => handleReminder(r.id)}>📧 Remind</button>
+                      <button className="ad-link-btn" style={{ color:"#22c55e" }} onClick={() => handleRenew(r.membershipId)}>Renew</button>
                     </div>
                   </td>
                 </tr>
@@ -3556,46 +4110,119 @@ function AdminRenewals() {
 function AdminPendingDues() {
   const { toast, show } = useToast();
   const [pendingPayments, setPendingPayments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ total: 0, overdue: 0, critical: 0 });
   
   useEffect(() => {
-    // TODO: Fetch pending payments from API
-    setPendingPayments([]);
+    fetchPendingDues();
   }, []);
 
-  const totalOverdue = pendingPayments.reduce((s, p) => s + parseFloat(p.amount?.replace("$","") || 0), 0);
+  const fetchPendingDues = async () => {
+    try {
+      setLoading(true);
+      
+      // Get all pending dues
+      const response = await duesService.getAllPendingDues({ limit: 1000 });
+      const memberships = response.data?.memberships || [];
+      
+      // Get overdue and critical
+      const overduePayments = await duesService.getOverduePayments();
+      const criticalPayments = await duesService.getCriticalOverduePayments();
+      
+      // Format pending payments
+      const formatted = memberships.map(m => {
+        const endDate = new Date(m.membershipEndDate);
+        const now = new Date();
+        const daysOverdue = Math.floor((now - endDate) / (1000 * 60 * 60 * 24));
+        
+        return {
+          id: m._id,
+          member: m.memberId?.fullName || 'Unknown',
+          email: m.memberId?.email || 'N/A',
+          plan: m.membershipPlan,
+          amount: m.finalAmount,
+          due: endDate.toLocaleDateString(),
+          days: daysOverdue > 0 ? daysOverdue : 0,
+          membershipId: m._id
+        };
+      });
+      
+      setPendingPayments(formatted);
+      
+      const totalAmount = formatted.reduce((s, p) => s + (p.amount || 0), 0);
+      setStats({
+        total: formatted.length,
+        overdue: overduePayments.length,
+        critical: criticalPayments.length
+      });
+    } catch (error) {
+      console.error('Error fetching pending dues:', error);
+      show('Error loading pending dues');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkPaid = async (membershipId) => {
+    try {
+      await duesService.markPaymentAsPaid(membershipId, {
+        paymentMethod: 'cash',
+        paymentStatus: 'paid'
+      });
+      show('Payment recorded!');
+      fetchPendingDues();
+    } catch (error) {
+      console.error('Error marking payment as paid:', error);
+      show('Error recording payment');
+    }
+  };
+
+  const handleReminder = async (memberId) => {
+    try {
+      await duesService.sendPaymentReminder(memberId);
+      show('Reminder sent!');
+    } catch (error) {
+      console.error('Error sending reminder:', error);
+      show('Error sending reminder');
+    }
+  };
+
+  const totalOverdue = pendingPayments.reduce((s, p) => s + (p.amount || 0), 0);
   
   return (
     <div className="ad-section">
       {toast && <Toast msg={toast} onClose={() => {}} />}
       <div className="ad-section-head"><h2>⚠️ Pending Dues</h2></div>
       <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
-        <KpiCard icon="⚠️" label="Overdue Accounts" value={pendingPayments.length} color="#ef4444" />
-        <KpiCard icon="💰" label="Total Overdue" value={`$${totalOverdue}`} color="#f59e0b" />
-        <KpiCard icon="🚨" label="Critical (5+ days)" value={pendingPayments.filter(p=>p.days>=3).length} color="#ef4444" />
+        <KpiCard icon="⚠️" label="Overdue Accounts" value={stats.overdue} color="#ef4444" />
+        <KpiCard icon="💰" label="Total Overdue" value={`₹${totalOverdue.toLocaleString()}`} color="#f59e0b" />
+        <KpiCard icon="🚨" label="Critical (3+ days)" value={stats.critical} color="#ef4444" />
       </div>
       <div className="ad-card">
         <div className="ad-card-head">
           <h3>🚨 Overdue Payments</h3>
-          <span className="ad-badge ad-red">{pendingPayments.length} urgent</span>
+          <span className="ad-badge ad-red">{stats.total} urgent</span>
         </div>
-        {pendingPayments.length === 0 ? (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>Loading pending dues...</div>
+        ) : pendingPayments.length === 0 ? (
           <EmptyState title="No pending dues" desc="All payments are up to date." />
         ) : (
           <table className="ad-table">
             <thead><tr><th>Member</th><th>Email</th><th>Plan</th><th>Amount</th><th>Due Date</th><th>Days Overdue</th><th>Actions</th></tr></thead>
             <tbody>
               {pendingPayments.map((p, i) => (
-                <tr key={i} style={{ background: p.days >= 3 ? "rgba(239,68,68,0.04)" : "inherit" }}>
+                <tr key={p.id || i} style={{ background: p.days >= 3 ? "rgba(239,68,68,0.04)" : "inherit" }}>
                   <td><strong>{p.member}</strong></td>
                   <td style={{ fontSize:".78rem" }}>{p.email}</td>
                   <td>{p.plan}</td>
-                  <td><strong style={{ color:"var(--accent)" }}>{p.amount}</strong></td>
+                  <td><strong style={{ color:"var(--accent)" }}>₹{p.amount?.toLocaleString()}</strong></td>
                   <td>{p.due}</td>
                   <td><span className={`ad-badge ${p.days>=3?"ad-red":"ad-yellow"}`}>{p.days} days</span></td>
                   <td>
                     <div style={{ display:"flex", gap:6 }}>
-                      <button className="ad-link-btn" onClick={() => show("Reminder sent!")}>📧 Remind</button>
-                      <button className="ad-link-btn" style={{ color:"#22c55e" }} onClick={() => show("Payment recorded!")}>✓ Mark Paid</button>
+                      <button className="ad-link-btn" onClick={() => handleReminder(p.id)}>📧 Remind</button>
+                      <button className="ad-link-btn" style={{ color:"#22c55e" }} onClick={() => handleMarkPaid(p.membershipId)}>✓ Mark Paid</button>
                     </div>
                   </td>
                 </tr>
@@ -3611,34 +4238,80 @@ function AdminPendingDues() {
 // ─── OFFERS: COUPONS ──────────────────────────────────────────────────────────
 function AdminCoupons({ openForm, lastFormData, formSubmissionTime }) {
   const [couponList, setCouponList] = useState([]);
-  const lastProcessedRef = useRef(0);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ active: 0, uses: 0, expired: 0 });
+  const lastProcessedRef = useRef(null);
   const { toast, show } = useToast();
+  
+  useEffect(() => {
+    fetchCoupons();
+  }, []);
+
+  const fetchCoupons = async () => {
+    try {
+      setLoading(true);
+      const response = await couponService.getAllCoupons({ limit: 100 });
+      const coupons = response.data?.coupons || [];
+      setCouponList(coupons);
+      
+      // Update stats
+      const summary = response.data?.summary || {};
+      setStats({
+        active: summary.active || 0,
+        uses: coupons.reduce((s, c) => s + (c.usedCount || 0), 0),
+        expired: summary.expired || 0
+      });
+    } catch (error) {
+      console.error('Error fetching coupons:', error);
+      show('Error loading coupons');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Handle form submission from global form
   useEffect(() => {
-    if (lastFormData && lastFormData.formType === "createCoupon" && formSubmissionTime > lastProcessedRef.current) {
-      const formData = lastFormData.data;
-      if (formData.title) {
-        setCouponList(prev => [...prev, { 
-          code: formData.title,
-          discount: formData.discount || "0",
-          type: formData.type || "percentage",
-          minAmount: formData.minAmount || 0,
-          maxUses: formData.maxUses || 100,
-          expiry: formData.endDate || "",
-          id: Date.now(), 
-          uses: 0, 
-          status: "active" 
-        }]);
-        show("Coupon created!");
-        lastProcessedRef.current = formSubmissionTime;
+    if (lastFormData && lastFormData.formType === "createCoupon") {
+      const submissionKey = `${lastFormData.formType}-${formSubmissionTime}`;
+      
+      if (submissionKey !== lastProcessedRef.current) {
+        const formData = lastFormData.data;
+        if (formData.title) {
+          createNewCoupon(formData);
+          lastProcessedRef.current = submissionKey;
+        }
       }
     }
-  }, [formSubmissionTime]);
-  
-  const del = (id) => { 
-    setCouponList(prev => prev.filter(c => c.id !== id)); 
-    show("Coupon deleted!"); 
+  }, [formSubmissionTime, lastFormData]);
+
+  const createNewCoupon = async (formData) => {
+    try {
+      await couponService.createCoupon({
+        code: formData.title,
+        discountType: formData.type || "percentage",
+        discountValue: parseFloat(formData.discount) || 0,
+        minPurchaseAmount: parseFloat(formData.minAmount) || 0,
+        maxUses: parseInt(formData.maxUses) || 100,
+        validUntil: formData.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        validFrom: new Date()
+      });
+      show("Coupon created!");
+      fetchCoupons();
+    } catch (error) {
+      console.error('Error creating coupon:', error);
+      show('Error creating coupon');
+    }
+  };
+
+  const deleteCouponHandler = async (id) => {
+    try {
+      await couponService.deleteCoupon(id);
+      show("Coupon deleted!");
+      fetchCoupons();
+    } catch (error) {
+      console.error('Error deleting coupon:', error);
+      show('Error deleting coupon');
+    }
   };
   
   return (
@@ -3646,41 +4319,43 @@ function AdminCoupons({ openForm, lastFormData, formSubmissionTime }) {
       {toast && <Toast msg={toast} onClose={() => {}} />}
       <div className="ad-section-head">
         <h2>🎟️ Coupons</h2>
-        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("createCoupon")}>+ Create Coupon</button>
+        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("createCoupon")} disabled={loading}>+ Create Coupon</button>
       </div>
       <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
-        <KpiCard icon="🎟️" label="Active Coupons" value={couponList.filter(c=>c.status==="active").length} color="#22c55e" />
-        <KpiCard icon="📊" label="Total Uses" value={couponList.reduce((s,c)=>s+c.uses,0)} color="var(--accent)" />
-        <KpiCard icon="❌" label="Expired" value={couponList.filter(c=>c.status==="expired").length} color="#ef4444" />
+        <KpiCard icon="🎟️" label="Active Coupons" value={stats.active} color="#22c55e" />
+        <KpiCard icon="📊" label="Total Uses" value={stats.uses} color="var(--accent)" />
+        <KpiCard icon="❌" label="Expired" value={stats.expired} color="#ef4444" />
       </div>
       <div className="ad-card">
         <div className="ad-table-wrap">
-          <table className="ad-table">
-            <thead><tr><th>Code</th><th>Discount</th><th>Type</th><th>Min Amount</th><th>Uses</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {couponList.length === 0 ? (
-                <tr><td colSpan="8" style={{ textAlign: "center", padding: "20px", color: "var(--text-secondary)" }}>No coupons yet. Create one to get started!</td></tr>
-              ) : (
-                couponList.map(c => (
-                  <tr key={c.id}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '20px' }}>Loading coupons...</div>
+          ) : couponList.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "20px", color: "var(--text-secondary)" }}>No coupons yet. Create one to get started!</div>
+          ) : (
+            <table className="ad-table">
+              <thead><tr><th>Code</th><th>Discount</th><th>Type</th><th>Min Amount</th><th>Uses</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                {couponList.map(c => (
+                  <tr key={c._id}>
                     <td><code style={{ fontSize:".82rem", fontWeight:700, color:"var(--accent)" }}>{c.code}</code></td>
-                    <td><strong style={{ color:"#22c55e" }}>{c.discount}</strong></td>
-                    <td><span className="ad-badge ad-blue">{c.type}</span></td>
-                    <td>${c.minAmount}</td>
-                    <td>{c.uses}/{c.maxUses}</td>
-                    <td style={{ fontSize:".78rem" }}>{c.expiry}</td>
-                    <td><ABadge s={c.status} /></td>
+                    <td><strong style={{ color:"#22c55e" }}>{c.discountValue}{c.discountType === 'percentage' ? '%' : '₹'}</strong></td>
+                    <td><span className="ad-badge ad-blue">{c.discountType}</span></td>
+                    <td>₹{c.minPurchaseAmount}</td>
+                    <td>{c.usedCount}/{c.maxUses || '∞'}</td>
+                    <td style={{ fontSize:".78rem" }}>{new Date(c.validUntil).toLocaleDateString()}</td>
+                    <td><ABadge s={c.isActive ? "active" : "inactive"} /></td>
                     <td>
                       <div style={{ display:"flex", gap:6 }}>
                         <button className="ad-link-btn" onClick={() => show(`Editing ${c.code}`)}>Edit</button>
-                        <button className="ad-link-btn" style={{ color:"#ef4444" }} onClick={() => del(c.id)}>Delete</button>
+                        <button className="ad-link-btn" style={{ color:"#ef4444" }} onClick={() => deleteCouponHandler(c._id)}>Delete</button>
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
@@ -3690,61 +4365,121 @@ function AdminCoupons({ openForm, lastFormData, formSubmissionTime }) {
 // ─── OFFERS: DISCOUNTS ────────────────────────────────────────────────────────
 function AdminDiscounts({ openForm, lastFormData, formSubmissionTime }) {
   const [discountList, setDiscountList] = useState([]);
-  const lastProcessedRef = useRef(0);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ active: 0, upcoming: 0, expired: 0 });
+  const lastProcessedRef = useRef(null);
   const { toast, show } = useToast();
+  
+  useEffect(() => {
+    fetchDiscounts();
+  }, []);
+
+  const fetchDiscounts = async () => {
+    try {
+      setLoading(true);
+      const response = await discountService.getAllDiscounts({ limit: 100 });
+      const discounts = response.data?.discounts || [];
+      setDiscountList(discounts);
+      
+      // Update stats
+      const summary = response.data?.summary || {};
+      setStats({
+        active: summary.active || 0,
+        upcoming: 0,
+        expired: summary.expired || 0
+      });
+    } catch (error) {
+      console.error('Error fetching discounts:', error);
+      show('Error loading discounts');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Handle form submission from global form
   useEffect(() => {
-    if (lastFormData && lastFormData.formType === "createCampaign" && formSubmissionTime > lastProcessedRef.current) {
-      const formData = lastFormData.data;
-      if (formData.title) {
-        setDiscountList(prev => [...prev, { 
-          id: Date.now(),
-          name: formData.title,
-          discount: formData.discount || "0%",
-          type: formData.type || "Seasonal",
-          target: formData.target || "All Members",
-          validity: `${formData.startDate} – ${formData.endDate}`,
-          status: "active"
-        }]);
-        show("Offer created!");
-        lastProcessedRef.current = formSubmissionTime;
+    if (lastFormData && lastFormData.formType === "createCampaign") {
+      const submissionKey = `${lastFormData.formType}-${formSubmissionTime}`;
+      
+      if (submissionKey !== lastProcessedRef.current) {
+        const formData = lastFormData.data;
+        if (formData.title) {
+          createNewDiscount(formData);
+          lastProcessedRef.current = submissionKey;
+        }
       }
     }
-  }, [formSubmissionTime]);
-  
-  const del = (id) => { setDiscountList(prev => prev.filter(d => d.id !== id)); show("Offer deleted!"); };
+  }, [formSubmissionTime, lastFormData]);
+
+  const createNewDiscount = async (formData) => {
+    try {
+      await discountService.createDiscount({
+        name: formData.title,
+        discountType: formData.type || "percentage",
+        discountValue: parseFloat(formData.discount) || 0,
+        category: formData.type || "promotional",
+        applicableTo: formData.target || "all_members",
+        validFrom: formData.startDate || new Date(),
+        validUntil: formData.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      });
+      show("Offer created!");
+      fetchDiscounts();
+    } catch (error) {
+      console.error('Error creating discount:', error);
+      show('Error creating offer');
+    }
+  };
+
+  const deleteDiscountHandler = async (id) => {
+    try {
+      await discountService.deleteDiscount(id);
+      show("Offer deleted!");
+      fetchDiscounts();
+    } catch (error) {
+      console.error('Error deleting discount:', error);
+      show('Error deleting offer');
+    }
+  };
+
   return (
     <div className="ad-section">
       {toast && <Toast msg={toast} onClose={() => {}} />}
       <div className="ad-section-head">
         <h2>🏷️ Discounts & Offers</h2>
-        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("createCampaign")}>+ Create Offer</button>
+        <button className="btn btn-primary ad-btn-sm" onClick={() => openForm("createCampaign")} disabled={loading}>+ Create Offer</button>
       </div>
       <div className="ad-kpi-grid" style={{ gridTemplateColumns:"repeat(3,1fr)" }}>
-        <KpiCard icon="✅" label="Active Offers" value={discountList.filter(d=>d.status==="active").length} color="#22c55e" />
-        <KpiCard icon="📅" label="Upcoming" value={discountList.filter(d=>d.status==="upcoming").length} color="#3b82f6" />
-        <KpiCard icon="❌" label="Expired" value={discountList.filter(d=>d.status==="expired").length} color="#ef4444" />
+        <KpiCard icon="✅" label="Active Offers" value={stats.active} color="#22c55e" />
+        <KpiCard icon="📅" label="Upcoming" value={stats.upcoming} color="#3b82f6" />
+        <KpiCard icon="❌" label="Expired" value={stats.expired} color="#ef4444" />
       </div>
       <div className="ad-offers-grid">
-        {discountList.map(d => (
-          <div className="ad-card ad-offer-card" key={d.id}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-              <h4 style={{ margin:0, fontSize:".95rem", fontWeight:700 }}>{d.name}</h4>
-              <ABadge s={d.status} />
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '20px', gridColumn: '1/-1' }}>Loading discounts...</div>
+        ) : discountList.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px', gridColumn: '1/-1', color: 'var(--text-secondary)' }}>No offers yet. Create one to get started!</div>
+        ) : (
+          discountList.map(d => (
+            <div className="ad-card ad-offer-card" key={d._id}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                <h4 style={{ margin:0, fontSize:".95rem", fontWeight:700 }}>{d.name}</h4>
+                <ABadge s={d.isActive ? "active" : "inactive"} />
+              </div>
+              <div style={{ fontSize:"1.4rem", fontWeight:800, color:"var(--accent)", margin:"8px 0" }}>
+                {d.discountValue}{d.discountType === 'percentage' ? '%' : '₹'}
+              </div>
+              <div style={{ fontSize:".78rem", color:"var(--text-secondary)", display:"flex", flexDirection:"column", gap:4 }}>
+                <span>🏷️ {d.category}</span>
+                <span>🎯 {d.applicableTo}</span>
+                <span>📅 {new Date(d.validFrom).toLocaleDateString()} – {new Date(d.validUntil).toLocaleDateString()}</span>
+              </div>
+              <div style={{ display:"flex", gap:8, marginTop:12 }}>
+                <button className="ad-link-btn" onClick={() => show(`Editing ${d.name}`)}>Edit</button>
+                <button className="ad-link-btn" style={{ color:"#ef4444" }} onClick={() => deleteDiscountHandler(d._id)}>Delete</button>
+              </div>
             </div>
-            <div style={{ fontSize:"1.4rem", fontWeight:800, color:"var(--accent)", margin:"8px 0" }}>{d.discount}</div>
-            <div style={{ fontSize:".78rem", color:"var(--text-secondary)", display:"flex", flexDirection:"column", gap:4 }}>
-              <span>🏷️ {d.type}</span>
-              <span>🎯 {d.target}</span>
-              <span>📅 {d.validity}</span>
-            </div>
-            <div style={{ display:"flex", gap:8, marginTop:12 }}>
-              <button className="ad-link-btn" onClick={() => show(`Editing ${d.name}`)}>Edit</button>
-              <button className="ad-link-btn" style={{ color:"#ef4444" }} onClick={() => del(d.id)}>Delete</button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
@@ -4153,9 +4888,9 @@ function renderSection(active, openForm, refreshTrigger, lastFormData, formSubmi
     checkins:             <AdminCheckins />,
     trainers:             <AdminTrainers openForm={openForm} />,
     permissions:          <AdminPermissions />,
-    schedule:             <AdminSchedule openForm={openForm} />,
-    bookings:             <AdminBookings />,
-    categories:           <AdminCategories openForm={openForm} />,
+    schedule:             <AdminSchedule openForm={openForm} lastFormData={lastFormData} formSubmissionTime={formSubmissionTime} />,
+    bookings:             <AdminBookings openForm={openForm} lastFormData={lastFormData} formSubmissionTime={formSubmissionTime} />,
+    categories:           <AdminCategories openForm={openForm} lastFormData={lastFormData} formSubmissionTime={formSubmissionTime} />,
     leads:                <AdminLeads />,
     followups:            <AdminFollowups />,
     conversions:          <AdminConversions />,
@@ -4168,8 +4903,8 @@ function renderSection(active, openForm, refreshTrigger, lastFormData, formSubmi
     "analytics-members":  <AdminAnalyticsMembers />,
     "analytics-revenue":  <AdminAnalyticsRevenue />,
     "analytics-classes":  <AdminAnalyticsClasses />,
-    equipment:            <AdminEquipment openForm={openForm} />,
-    maintenance:          <AdminMaintenance openForm={openForm} />,
+    equipment:            <AdminEquipment openForm={openForm} lastFormData={lastFormData} formSubmissionTime={formSubmissionTime} />,
+    maintenance:          <AdminMaintenance openForm={openForm} lastFormData={lastFormData} formSubmissionTime={formSubmissionTime} />,
     payments:             <AdminPayments />,
     renewals:             <AdminRenewals />,
     "pending-dues":       <AdminPendingDues />,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { InputField, SelectField, TextareaField, FormRow, FormActions } from "./FormField";
 import superAdminAPI from "../services/superAdminAPI";
 
@@ -939,6 +939,7 @@ export function FormRenderer({ formType, onSubmit, onCancel, accentColor, data =
     addStaff: <AddStaffForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
     createBranch: <CreateBranchForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
     addClass: <AddClassForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
+    addCategory: <AddCategoryForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} />,
     assignPlan: <AssignPlanForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} clients={data.clients} plans={data.plans} />,
     addDietPlan: <AddDietPlanForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} clients={data.clients} />,
     logMeal: <LogMealForm onSubmit={onSubmit} onCancel={onCancel} accentColor={accentColor} clients={data.clients} />,
@@ -962,6 +963,7 @@ export const formTitles = {
   addStaff: "Add Staff Member",
   createBranch: "Create New Branch",
   addClass: "Add New Class",
+  addCategory: "Add Class Category",
   assignPlan: "Assign Workout Plan",
   addDietPlan: "Create Diet Plan",
   logMeal: "Log Meal",
@@ -974,21 +976,55 @@ export const formTitles = {
 // ─── ADD CLASS FORM ───────────────────────────────────────────────────────────
 export function AddClassForm({ onSubmit, onCancel, accentColor }) {
   const [formData, setFormData] = useState({
-    name: "",
-    instructor: "",
-    schedule: "",
+    className: "",
+    category: "",
+    trainer: "",
     duration: "",
     capacity: "",
-    level: "",
+    difficultyLevel: "beginner",
+    price: "",
     description: "",
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [trainers, setTrainers] = useState([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+
+  // Fetch categories and trainers on mount
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        setLoadingOptions(true);
+        const categoriesService = (await import('../services/categoriesService')).default;
+        const adminTrainersAPI = (await import('../services/adminAPI')).adminTrainersAPI;
+        
+        const [categoriesRes, trainersRes] = await Promise.all([
+          categoriesService.getAllCategories(1, 100),
+          adminTrainersAPI.getAllTrainers(1, 100),
+        ]);
+        
+        setCategories(categoriesRes.data || []);
+        setTrainers(trainersRes.data || []);
+      } catch (error) {
+        console.error('[AddClassForm] Error fetching options:', error);
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+    
+    fetchOptions();
+  }, []);
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Class name is required";
-    if (!formData.schedule.trim()) newErrors.schedule = "Schedule is required";
+    if (!formData.className.trim()) newErrors.className = "Class name is required";
+    if (!formData.category) newErrors.category = "Category is required";
+    if (!formData.trainer) newErrors.trainer = "Trainer is required";
+    if (!formData.duration) newErrors.duration = "Duration is required";
+    if (!formData.capacity) newErrors.capacity = "Capacity is required";
+    if (!formData.difficultyLevel) newErrors.difficultyLevel = "Difficulty level is required";
+    if (!formData.price) newErrors.price = "Price is required";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -997,69 +1033,203 @@ export function AddClassForm({ onSubmit, onCancel, accentColor }) {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    onSubmit(formData);
-    setLoading(false);
+    try {
+      const classesService = (await import('../services/classesService')).default;
+      const response = await classesService.createClass({
+        className: formData.className,
+        category: formData.category,
+        trainer: formData.trainer,
+        duration: parseInt(formData.duration) || 60,
+        capacity: parseInt(formData.capacity) || 30,
+        difficultyLevel: formData.difficultyLevel || "beginner",
+        price: parseFloat(formData.price) || 0,
+        description: formData.description || "",
+      });
+      console.log('[AddClassForm] Class created:', response);
+      onSubmit(response.data || formData);
+    } catch (error) {
+      console.error('[AddClassForm] Error creating class:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to create class';
+      setErrors({ submit: errorMsg });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const set = (key, value) => setFormData((p) => ({ ...p, [key]: value }));
 
   return (
     <form onSubmit={handleSubmit}>
+      {errors.submit && (
+        <div style={{ padding: "12px", background: "#fee2e2", color: "#991b1b", borderRadius: "4px", marginBottom: "12px" }}>
+          {errors.submit}
+        </div>
+      )}
       <InputField
         label="Class Name"
         required
-        value={formData.name}
-        onChange={(e) => set("name", e.target.value)}
-        error={errors.name}
+        value={formData.className}
+        onChange={(e) => set("className", e.target.value)}
+        error={errors.className}
         placeholder="e.g., HIIT Blast"
       />
       <FormRow>
-        <InputField
-          label="Instructor"
-          value={formData.instructor}
-          onChange={(e) => set("instructor", e.target.value)}
-          placeholder="Instructor name"
+        <SelectField
+          label="Category"
+          required
+          value={formData.category}
+          onChange={(e) => set("category", e.target.value)}
+          error={errors.category}
+          placeholder={loadingOptions ? "Loading..." : "Select category"}
+          options={categories.map(c => ({ value: c._id, label: c.categoryName }))}
+          disabled={loadingOptions}
         />
         <SelectField
-          label="Level"
-          value={formData.level}
-          onChange={(e) => set("level", e.target.value)}
+          label="Trainer"
+          required
+          value={formData.trainer}
+          onChange={(e) => set("trainer", e.target.value)}
+          error={errors.trainer}
+          placeholder={loadingOptions ? "Loading..." : "Select trainer"}
+          options={trainers.map(t => ({ value: t._id, label: t.fullName || t.name }))}
+          disabled={loadingOptions}
+        />
+      </FormRow>
+      <FormRow>
+        <SelectField
+          label="Difficulty Level"
+          required
+          value={formData.difficultyLevel}
+          onChange={(e) => set("difficultyLevel", e.target.value)}
+          error={errors.difficultyLevel}
           placeholder="Select level"
-          options={["Beginner", "Intermediate", "Advanced", "All Levels"]}
+          options={[
+            { value: "beginner", label: "Beginner" },
+            { value: "intermediate", label: "Intermediate" },
+            { value: "advanced", label: "Advanced" }
+          ]}
+        />
+        <InputField
+          label="Price ($)"
+          type="number"
+          required
+          value={formData.price}
+          onChange={(e) => set("price", e.target.value)}
+          error={errors.price}
+          placeholder="99.99"
+          step="0.01"
         />
       </FormRow>
       <FormRow>
         <InputField
-          label="Schedule"
-          required
-          value={formData.schedule}
-          onChange={(e) => set("schedule", e.target.value)}
-          error={errors.schedule}
-          placeholder="e.g., Mon/Wed/Fri 6:00 AM"
-        />
-        <InputField
-          label="Duration (min)"
+          label="Duration (minutes)"
           type="number"
+          required
           value={formData.duration}
           onChange={(e) => set("duration", e.target.value)}
+          error={errors.duration}
           placeholder="60"
+        />
+        <InputField
+          label="Capacity"
+          type="number"
+          required
+          value={formData.capacity}
+          onChange={(e) => set("capacity", e.target.value)}
+          error={errors.capacity}
+          placeholder="30"
         />
       </FormRow>
       <InputField
-        label="Capacity"
-        type="number"
-        value={formData.capacity}
-        onChange={(e) => set("capacity", e.target.value)}
-        placeholder="Max participants"
-      />
-      <TextareaField
         label="Description"
         value={formData.description}
         onChange={(e) => set("description", e.target.value)}
         placeholder="Class description"
       />
-      <FormActions onCancel={onCancel} submitLabel="Add Class" loading={loading} accentColor={accentColor} />
+      <FormActions onCancel={onCancel} submitLabel="Create Class" loading={loading || loadingOptions} accentColor={accentColor} />
+    </form>
+  );
+}
+
+// ─── ADD CATEGORY FORM ────────────────────────────────────────────────────────
+export function AddCategoryForm({ onSubmit, onCancel, accentColor }) {
+  const [formData, setFormData] = useState({
+    categoryName: "",
+    description: "",
+    icon: "",
+    color: "#3b82f6",
+  });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.categoryName.trim()) newErrors.categoryName = "Category name is required";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      const categoriesService = (await import('../services/categoriesService')).default;
+      const response = await categoriesService.createCategory({
+        categoryName: formData.categoryName,
+        description: formData.description || "",
+        icon: formData.icon || "📂",
+        color: formData.color || "#3b82f6",
+      });
+      console.log('[AddCategoryForm] Category created:', response);
+      onSubmit(response.data || formData);
+    } catch (error) {
+      console.error('[AddCategoryForm] Error creating category:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to create category';
+      setErrors({ submit: errorMsg });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const set = (key, value) => setFormData((p) => ({ ...p, [key]: value }));
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {errors.submit && (
+        <div style={{ padding: "12px", background: "#fee2e2", color: "#991b1b", borderRadius: "4px", marginBottom: "12px" }}>
+          {errors.submit}
+        </div>
+      )}
+      <InputField
+        label="Category Name"
+        required
+        value={formData.categoryName}
+        onChange={(e) => set("categoryName", e.target.value)}
+        error={errors.categoryName}
+        placeholder="e.g., Cardio, Strength, Yoga"
+      />
+      <InputField
+        label="Description"
+        value={formData.description}
+        onChange={(e) => set("description", e.target.value)}
+        placeholder="Brief description of this category"
+      />
+      <FormRow>
+        <InputField
+          label="Icon"
+          value={formData.icon}
+          onChange={(e) => set("icon", e.target.value)}
+          placeholder="e.g., 🏃, 💪, 🧘"
+        />
+        <InputField
+          label="Color"
+          type="color"
+          value={formData.color}
+          onChange={(e) => set("color", e.target.value)}
+        />
+      </FormRow>
+      <FormActions onCancel={onCancel} submitLabel="Create Category" loading={loading} accentColor={accentColor} />
     </form>
   );
 }
@@ -1330,6 +1500,7 @@ export function ScheduleMaintenanceForm({ onSubmit, onCancel, accentColor }) {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   const validate = () => {
     const newErrors = {};
@@ -1343,15 +1514,52 @@ export function ScheduleMaintenanceForm({ onSubmit, onCancel, accentColor }) {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    onSubmit(formData);
-    setLoading(false);
+    setApiError("");
+    
+    try {
+      // Import maintenance service dynamically to avoid circular dependencies
+      const maintenanceService = await import('../services/maintenanceService');
+      
+      // Prepare data for API
+      const apiData = {
+        equipment_id: formData.equipment,
+        type: formData.type,
+        technician_name: formData.technician,
+        scheduled_date: formData.scheduledDate,
+        description: formData.notes,
+        status: 'pending',
+      };
+      
+      // Call API to save maintenance
+      await maintenanceService.createMaintenance(apiData);
+      
+      // Call onSubmit callback
+      onSubmit(formData);
+    } catch (error) {
+      setApiError(error.message || "Failed to schedule maintenance");
+      console.error("Maintenance creation error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const set = (key, value) => setFormData((p) => ({ ...p, [key]: value }));
 
   return (
     <form onSubmit={handleSubmit}>
+      {apiError && (
+        <div style={{
+          padding: '12px',
+          marginBottom: '16px',
+          backgroundColor: '#fee2e2',
+          border: '1px solid #fca5a5',
+          borderRadius: '6px',
+          color: '#991b1b',
+          fontSize: '0.875rem'
+        }}>
+          {apiError}
+        </div>
+      )}
       <InputField
         label="Equipment Name"
         required
